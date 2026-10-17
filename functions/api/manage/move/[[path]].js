@@ -134,7 +134,13 @@ async function moveFile(env, fileId, newFileId, cdnUrl, url) {
         const db = getDatabase(env);
 
         // 读取图片信息
-        const img = await db.getWithMetadata(fileId);
+        const img = await db.ensureFileIdentity(fileId);
+        if (!img?.metadata) throw new Error('File not found');
+        if (fileId === newFileId) return true;
+        const destination = await db.getWithMetadata(newFileId);
+        if (destination?.metadata || await db.isPathReserved(newFileId, img.metadata.FixedId)) {
+            throw new Error('Destination already exists or is reserved by an existing reference');
+        }
 
         // 如果是R2渠道的图片，需要移动R2中对应的图片
         if (img.metadata?.Channel === 'CloudflareR2') {

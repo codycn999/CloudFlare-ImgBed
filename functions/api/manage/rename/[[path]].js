@@ -87,7 +87,7 @@ export async function onRequest(context) {
         const db = getDatabase(env);
 
         // 获取当前文件数据
-        const fileData = await db.getWithMetadata(fileId);
+        const fileData = await db.ensureFileIdentity(fileId);
 
         if (!fileData || !fileData.metadata) {
             return new Response(JSON.stringify({
@@ -101,7 +101,7 @@ export async function onRequest(context) {
 
         // 检查目标 File_ID 是否已存在（重复性检测）
         const existingFile = await db.getWithMetadata(newFileId);
-        if (existingFile && existingFile.value !== null) {
+        if ((existingFile && existingFile.value !== null) || await db.isPathReserved(newFileId, fileData.metadata.FixedId)) {
             return new Response(JSON.stringify({
                 success: false,
                 message: '目标文件名已存在',

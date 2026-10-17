@@ -9,6 +9,7 @@ import {
     returnWithCheck, return404, returnBlockImg, isDomainAllowed, FILE_CACHE_CONTROL
 } from './fileTools';
 import { getDatabase } from '../utils/databaseAdapter.js';
+import { resolveFilePath } from '../utils/fileIdentity.js';
 import { authenticate, AUTH_SCOPE } from '../utils/auth/authCore.js';
 import {
     resolveDiscordCredentials,
@@ -58,6 +59,8 @@ export async function onRequest(context) {  // Contents of context object
 
     // 从数据库中获取图片记录
     const db = getDatabase(env);
+    fileId = await resolveFilePath(db, fileId);
+    if (!fileId) return new Response('Error: Image Not Found', { status: 404 });
     const imgRecord = await db.getWithMetadata(fileId);
     if (!imgRecord) {
         return new Response('Error: Image Not Found', { status: 404 });

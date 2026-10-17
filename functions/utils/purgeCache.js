@@ -1,4 +1,6 @@
 import { fetchOthersConfig } from "./sysConfig";
+import { getDatabase } from './databaseAdapter.js';
+import { getReferencePaths } from './fileIdentity.js';
 
 let othersConfig = {};
 let cfZoneId = "";
@@ -19,12 +21,20 @@ export async function purgeCFCache(env, cdnUrl) {
         }
 
         // 清除CDN缓存
+        const originalUrl = new URL(cdnUrl);
+        const path = decodeURIComponent(originalUrl.pathname.replace(/^\/file\//, ''));
+        const references = await getReferencePaths(getDatabase(env), path);
+        const files = [...new Set([cdnUrl, ...references.map(reference =>
+            `${originalUrl.origin}/file/${reference.split('/').map(encodeURIComponent).join('/')}`)])];
         const options = {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-Auth-Email': `${cfEmail}`, 'X-Auth-Key': `${cfApiKey}`},
-            body: `{"files":["${ cdnUrl }"]}`
+            body: ''
         };
-        await fetch(`https://api.cloudflare.com/client/v4/zones/${ cfZoneId }/purge_cache`, options);
+        for (let start = 0; start < files.length; start += 30) {
+            options.body = JSON.stringify({ files: files.slice(start, start + 30) });
+            await fetch(`https://api.cloudflare.com/client/v4/zones/${ cfZoneId }/purge_cache`, options);
+        }
     } catch (error) {
         console.error('Failed to purge CF cache:', error.message || error);
     }

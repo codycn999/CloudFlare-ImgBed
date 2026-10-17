@@ -137,7 +137,7 @@ export function createTelegramWebhookHandler(services) {
                     console.error('Telegram upload cache refresh failed');
                 }));
             }
-            const link = `${publicURL.origin}/file/${fileId.split('/').map(encodeURIComponent).join('/')}`;
+            const link = `${publicURL.origin}/file/${(metadata.FixedId || fileId).split('/').map(encodeURIComponent).join('/')}`;
             await reply(`上传成功：${metadata.FileName}\n${link}`);
             return response('OK');
         } catch {
