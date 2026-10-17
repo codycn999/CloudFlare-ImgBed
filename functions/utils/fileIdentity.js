@@ -19,7 +19,7 @@ export function withFileIdentity(db) {
     const rawGetWithMetadata = db.getWithMetadata.bind(db);
 
     db.isPathReserved = async (path, allowedId = '') => {
-        if (isFixedId(path) && path !== allowedId) return true;
+        if (isFixedId(path)) return true;
         const owner = await rawGet(await aliasKey(path));
         return !!owner && owner !== allowedId;
     };
