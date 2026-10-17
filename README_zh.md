@@ -183,6 +183,8 @@
 
 # 4. Tips
 
+- **Telegram 私聊上传**：给 Bot 发送图片或文件，自动保存到频道并进入图床管理，详见[配置说明](readme/telegram-bot-upload.md)。需设置 Webhook 密钥与用户白名单。
+
 - **前端开源**：参见[MarSeventh/Sanyue-ImgHub](https://github.com/MarSeventh/Sanyue-ImgHub)项目。
 
 - **桌面端开源**：参见[MarSeventh/satellite](https://github.com/MarSeventh/satellite)项目。
