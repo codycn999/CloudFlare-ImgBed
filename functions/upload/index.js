@@ -177,7 +177,8 @@ async function processFileUpload(context, formdata = null) {
         TimeStamp: time,
         Label: "None",
         Directory: normalizedFolder === '' ? '' : normalizedFolder + '/',
-        Tags: []
+        Tags: [],
+        FixedId: 'f_' + crypto.randomUUID().replace(/-/g, '')
     };
 
     // 添加图片尺寸信息
@@ -195,16 +196,16 @@ async function processFileUpload(context, formdata = null) {
     const returnFormat = url.searchParams.get('returnFormat') || 'default';
     let returnLink = '';
     if (returnFormat === 'full') {
-        returnLink = `${url.origin}/file/${fullId}`;
+        returnLink = `${url.origin}/file/${metadata.FixedId}`;
     } else {
-        returnLink = `/file/${fullId}`;
+        returnLink = `/file/${metadata.FixedId}`;
     }
 
     // 构建公开访问链接（使用 urlPrefix 配置）
     const pageConfig = await fetchPageConfig(context.env);
     const urlPrefixConfig = pageConfig.config?.find(c => c.id === 'urlPrefix');
     const urlPrefix = urlPrefixConfig?.value || '';
-    context.publicUrl = urlPrefix ? `${urlPrefix.replace(/\/+$/, '')}/${fullId}` : '';
+    context.publicUrl = urlPrefix ? `${urlPrefix.replace(/\/+$/, '')}/${metadata.FixedId}` : '';
 
     /* ====================================不同渠道上传======================================= */
     // 出错是否切换渠道自动重试，默认开启

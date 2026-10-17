@@ -183,6 +183,8 @@
 
 # 4. Tips
 
+- **固定 ID 与永久链接**：文件详情中可查看只读 ID，改名或移动后保留引用地址，详见[说明](readme/permanent-file-links.md)。
+
 - **Telegram 私聊上传**：给 Bot 发送图片或文件，自动保存到频道并进入图床管理，详见[配置说明](readme/telegram-bot-upload.md)。需设置 Webhook 密钥与用户白名单。
 
 - **前端开源**：参见[MarSeventh/Sanyue-ImgHub](https://github.com/MarSeventh/Sanyue-ImgHub)项目。

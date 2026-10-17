@@ -1276,9 +1276,10 @@ export async function uploadLargeFileToTelegram(context, file, fullId, metadata,
         const pageConfig = await fetchPageConfig(env);
         const urlPrefixConfig = pageConfig.config?.find(c => c.id === 'urlPrefix');
         const urlPrefix = urlPrefixConfig?.value || '';
-        const responseBody = [{ 'src': returnLink }];
+        const permanentLink = metadata.FixedId ? returnLink.replace(/\/file\/.*$/, `/file/${metadata.FixedId}`) : returnLink;
+        const responseBody = [{ 'src': permanentLink }];
         if (urlPrefix) {
-            responseBody[0].publicUrl = `${urlPrefix.replace(/\/+$/, '')}/${fullId}`;
+            responseBody[0].publicUrl = `${urlPrefix.replace(/\/+$/, '')}/${metadata.FixedId || fullId}`;
         }
 
         return createResponse(

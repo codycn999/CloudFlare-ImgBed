@@ -135,7 +135,7 @@ export async function onRequestPost(context) {
         waitUntil(endUpload(uploadContext, fullId, metadata));
 
         // 返回成功响应
-        const returnLink = `/file/${fullId}`;
+        const returnLink = `/file/${metadata.FixedId || fullId}`;
         const responseBody = {
             success: true,
             src: returnLink,
@@ -148,7 +148,7 @@ export async function onRequestPost(context) {
         const urlPrefixConfig = pageConfig.config?.find(c => c.id === 'urlPrefix');
         const urlPrefix = urlPrefixConfig?.value || '';
         if (urlPrefix) {
-            responseBody.publicUrl = `${urlPrefix.replace(/\/+$/, '')}/${fullId}`;
+            responseBody.publicUrl = `${urlPrefix.replace(/\/+$/, '')}/${metadata.FixedId || fullId}`;
         }
 
         return createResponse(JSON.stringify(responseBody), {

@@ -117,11 +117,14 @@ async function startMerge(context, uploadId, totalChunks, originalFileName, orig
             if (result.result && result.result.length > 0) {
                 const src = result.result[0].src;
                 const fileName = src.startsWith('/file/') ? src.slice(6) : src.split('/file/').pop();
+                const saved = await getDatabase(env).getWithMetadata(fileName);
+                const publicId = saved?.metadata?.FixedId || fileName;
+                result.result[0].src = src.startsWith('/file/') ? `/file/${publicId}` : `${new URL(src).origin}/file/${publicId}`;
                 const pageConfig = await fetchPageConfig(env);
                 const urlPrefixConfig = pageConfig.config?.find(c => c.id === 'urlPrefix');
                 const urlPrefix = urlPrefixConfig?.value || '';
                 if (urlPrefix) {
-                    result.result[0].publicUrl = `${urlPrefix.replace(/\/+$/, '')}/${fileName}`;
+                    result.result[0].publicUrl = `${urlPrefix.replace(/\/+$/, '')}/${publicId}`;
                 }
             }
 
