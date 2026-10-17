@@ -27,6 +27,7 @@ export function withFileIdentity(db) {
     db.put = async (key, value, options = {}) => {
         if (!isFile(key, options.metadata)) return rawPut(key, value, options);
         const metadata = options.metadata;
+        if (metadata.NamePolicyVersion === 1) metadata.FileName = key.split('/').pop();
         const existing = await rawGetWithMetadata(key);
         // The identity of an existing file cannot be changed by metadata updates.
         if (isFixedId(existing?.metadata?.FixedId)) metadata.FixedId = existing.metadata.FixedId;

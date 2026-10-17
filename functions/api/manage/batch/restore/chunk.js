@@ -128,6 +128,11 @@ export async function onRequestPost(context) {
       }
     }
 
+    if (type === 'files' && Object.entries(data).some(([key, fileData]) =>
+      fileData.metadata?.FileName && fileData.metadata.FileName !== key.split('/').pop())) {
+      await db.delete('manage@migration@unifiedNames@v1');
+    }
+
     return jsonResponse({
       success: true,
       restoredCount,

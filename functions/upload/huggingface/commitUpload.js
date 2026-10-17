@@ -123,6 +123,7 @@ export async function onRequestPost(context) {
 
         // 写入数据库
         const db = getDatabase(env);
+        metadata.NamePolicyVersion = 1;
         await db.put(fullId, "", { metadata });
 
         // 结束上传（更新索引等）

@@ -1,8 +1,7 @@
 import { S3Client, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "../../../utils/purgeCache";
-import { moveFileInIndex } from "../../../utils/indexManager.js";
+import { moveFileInIndex, addFileToIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from '../../../utils/databaseAdapter.js';
-import { sanitizeUploadFolder } from "../../../upload/uploadTools.js";
 import { WebDAVAPI } from "../../../utils/storage/webdavAPI.js";
 import {
     resolveS3Credentials,
@@ -10,6 +9,7 @@ import {
 } from "../../../utils/metadata/channelCredentials.js";
 import { cleanPersistedMetadataInPlace } from "../../../utils/metadata/metadataSecurity.js";
 import { buildFileMetadataForManagement } from "../../../utils/metadata/metadataView.js";
+import { validateFileName } from '../../../utils/fileNaming.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -70,7 +70,7 @@ export async function onRequest(context) {
         }
 
         // 验证请求体中包含 newFileId
-        if (!body || typeof body.newFileId !== 'string' || !body.newFileId.trim()) {
+        if (!body || (typeof body.newFileName !== 'string' && typeof body.newFileId !== 'string')) {
             return new Response(JSON.stringify({
                 success: false,
                 message: 'newFileId is required and must be a non-empty string.',
@@ -81,7 +81,13 @@ export async function onRequest(context) {
         }
 
         // 路径安全处理
-        const newFileId = sanitizeUploadFolder(body.newFileId.trim());
+        const folder = fileId.split('/').slice(0, -1).join('/');
+        const newFileName = typeof body.newFileName === 'string' ? body.newFileName : body.newFileId.split('/').pop();
+        if (!validateFileName(newFileName) || (typeof body.newFileId === 'string' &&
+            body.newFileId.split('/').slice(0, -1).join('/') !== folder)) {
+            return Response.json({ success: false, message: '只允许修改文件名；更改文件夹请使用移动。文件名不能包含路径或特殊字符。' }, { status: 400 });
+        }
+        const newFileId = folder ? `${folder}/${newFileName}` : newFileName;
 
         const url = new URL(request.url);
         const db = getDatabase(env);
@@ -101,7 +107,7 @@ export async function onRequest(context) {
 
         // 检查目标 File_ID 是否已存在（重复性检测）
         const existingFile = await db.getWithMetadata(newFileId);
-        if ((existingFile && existingFile.value !== null) || await db.isPathReserved(newFileId, fileData.metadata.FixedId)) {
+        if (newFileId !== fileId && ((existingFile && existingFile.value !== null) || await db.isPathReserved(newFileId, fileData.metadata.FixedId))) {
             return new Response(JSON.stringify({
                 success: false,
                 message: '目标文件名已存在',
@@ -113,6 +119,16 @@ export async function onRequest(context) {
 
         // 执行文件迁移
         const metadata = { ...fileData.metadata };
+        metadata.FileName = newFileName;
+        metadata.NamePolicyVersion = 1;
+        if (typeof body.FileType === 'string') metadata.FileType = body.FileType;
+
+        if (newFileId === fileId) {
+            await db.put(fileId, fileData.value, { metadata });
+            await purgeCFCache(env, `${url.origin}/file/${fileId}`);
+            waitUntil(addFileToIndex(context, fileId, metadata));
+            return Response.json({ success: true, newFileId, metadata: await buildFileMetadataForManagement(db, env, metadata) });
+        }
 
         // 如果是 R2 渠道的图片，需要移动 R2 中对应的图片
         if (metadata?.Channel === 'CloudflareR2') {

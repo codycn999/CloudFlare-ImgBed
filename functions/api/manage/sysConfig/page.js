@@ -178,21 +178,6 @@ export async function getPageConfig(db, env) {
             category_en: 'Client Settings',
         },
         {
-            id: 'defaultUploadNameType',
-            label: '默认命名方式',
-            label_en: 'Default Naming',
-            type: 'select',
-            options: [
-                { label: '默认', value: 'default', label_en: 'Default' },
-                { label: '仅前缀', value: 'index', label_en: 'Prefix Only' },
-                { label: '仅原名', value: 'origin', label_en: 'Original Name' },
-                { label: '短链接', value: 'short', label_en: 'Short Link' },
-            ],
-            placeholder: 'default',
-            category: '客户端设置',
-            category_en: 'Client Settings',
-        },
-        {
             id: 'defaultConvertToWebp',
             label: '默认转换WebP',
             label_en: 'Default Convert to WebP',

@@ -1,5 +1,13 @@
 <template>
     <div class="container">
+        <el-alert v-if="normalizationRunning || normalizationError || normalizationResult?.renamed || normalizationResult?.skipped" :type="normalizationError || normalizationResult?.skipped ? 'warning' : 'info'" :closable="!normalizationRunning" style="margin-bottom: 12px">
+            <div v-if="normalizationRunning">{{ $t('dashboard.normalizingNames') }}</div>
+            <div v-else-if="normalizationError">{{ $t('dashboard.nameNormalizationFailed') }}</div>
+            <div v-else>{{ $t('dashboard.nameNormalizationDone', { count: normalizationResult?.renamed || 0, conflicts: normalizationResult?.conflictsResolved || 0 }) }}</div>
+            <div v-if="normalizationResult?.skipped">{{ $t('dashboard.nameNormalizationSkipped', { count: normalizationResult.skipped }) }}</div>
+            <ul v-if="normalizationResult?.errors?.length"><li v-for="item in normalizationResult.errors" :key="item.path">{{ item.path }}：{{ item.reason }}</li></ul>
+            <el-button v-if="!normalizationRunning && (normalizationError || normalizationResult?.skipped)" link type="primary" @click="retryNameNormalization">{{ $t('dashboard.retryNameNormalization') }}</el-button>
+        </el-alert>
         <el-container>
             <el-header>
             <div class="header-content">
@@ -404,6 +412,7 @@ mixins: [backgroundManager],
 data() {
     return {
         Number: 0,
+        normalizationRunning: false, normalizationError: false, normalizationResult: null,
         directFileCount: 0, // 当前目录直接子文件数量
         directFolderCount: 0, // 当前目录直接子文件夹数量
         showLogoutButton: false,
@@ -685,6 +694,25 @@ watch: {
     }
 },
 methods: {
+    async normalizeExistingNames(restart = false) {
+        if (this.normalizationRunning) return;
+        this.normalizationRunning = true;
+        this.normalizationError = false;
+        try {
+            let first = true;
+            do {
+                const response = await fetchWithAuth('/api/manage/normalizeNames', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restart: first && restart }) });
+                if (!response.ok) throw new Error('Normalization failed');
+                this.normalizationResult = await response.json();
+                first = false;
+            } while (!this.normalizationResult.done);
+        } catch { this.normalizationError = true; }
+        finally { this.normalizationRunning = false; }
+    },
+    async retryNameNormalization() {
+        await this.normalizeExistingNames(true);
+        await this.refreshFileList();
+    },
     // 切换视图模式
     toggleViewMode() {
         this.viewMode = this.viewMode === 'card' ? 'list' : 'card';
@@ -1965,7 +1993,7 @@ mounted() {
     // 路由守卫已通过 /api/auth/sessionCheck 验证认证状态
     this.showLogoutButton = this.$store.state.adminLoggedIn;
     // 首次加载时刷新文件列表
-    this.refreshFileList()
+    this.normalizeExistingNames().then(() => this.refreshFileList())
         .then(() => {
             // 获取所有渠道名称
             return this.extractChannelNames();
