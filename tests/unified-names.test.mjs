@@ -75,6 +75,14 @@ test('a conflicting manual name returns 409 and preserves both files', async () 
     assert.ok((await f.db.getWithMetadata('photos/b.png')).metadata);
 });
 
+test('a fixed ID cannot be used as an editable root filename', async () => {
+    const f = fixture(); const id = await f.create('old.png', 'old.png');
+    const result = await renameFile(f.context('old.png', { newFileName: id }));
+    assert.equal(result.status, 409);
+    assert.ok((await f.db.getWithMetadata('old.png')).metadata);
+    assert.equal(await resolveFilePath(f.db, id), 'old.png');
+});
+
 test('legacy migration follows displayed names, numbers duplicates and reports unsafe names', async () => {
     const f = fixture();
     const a = await f.create('photos/001.png', '假期.png');
