@@ -219,7 +219,12 @@
     "fetchingFileList": "Fetching file list...",
     "folderEmptyNoLinks": "Folder is empty, no links to copy",
     "copiedFileLinks": "Copied {count} file links",
-    "copyFolderLinksFailed": "Failed to copy folder links, please retry"
+    "copyFolderLinksFailed": "Failed to copy folder links, please retry",
+    "normalizingNames": "Organizing existing files by their displayed names. Progress is saved.",
+    "nameNormalizationDone": "Names synchronized: {count}; numbered duplicates: {conflicts}.",
+    "nameNormalizationFailed": "Name normalization is unfinished and will resume next time.",
+    "nameNormalizationSkipped": "{count} files need manual attention.",
+    "retryNameNormalization": "Retry"
   },
   "dashboardTabs": {
     "fileManagement": "File Management",

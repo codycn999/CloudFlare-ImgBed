@@ -19,9 +19,6 @@
             <el-button type="warning" @click="startEdit()" round size="small" class="detail-action" v-if="!isEditing">
                 <font-awesome-icon icon="edit" style="margin-right: 3px;"></font-awesome-icon> {{ $t('fileDetail.edit') }}
             </el-button>
-            <el-button type="info" @click="openRenameDialog()" round size="small" class="detail-action" v-if="!isEditing">
-                <font-awesome-icon icon="i-cursor" style="margin-right: 3px;"></font-awesome-icon> {{ $t('fileDetail.rename') }}
-            </el-button>
             <el-button type="success" @click="saveMetadata()" round size="small" class="detail-action" v-if="isEditing" :loading="editSaving">
                 <font-awesome-icon icon="save" style="margin-right: 3px;" v-if="!editSaving"></font-awesome-icon> {{ $t('fileDetail.save') }}
             </el-button>
@@ -116,35 +113,13 @@
                 <span v-else style="color: #909399;">{{ $t('fileDetail.noTags') }}</span>
             </el-descriptions-item>
         </el-descriptions>
-        <!-- 重命名弹窗 -->
-        <el-dialog
-            v-model="showRenameDialog"
-            :title="$t('fileDetail.renameTitle')"
-            :width="dialogWidth"
-            append-to-body
-        >
-            <el-form @submit.prevent="submitRename">
-                <el-form-item :label="$t('fileDetail.renameLabel')" :error="renameValidation.error">
-                    <el-input
-                        v-model="renameForm.newFileId"
-                        :placeholder="$t('fileDetail.renamePlaceholder')"
-                        @input="validateRenameInput"
-                        clearable
-                    ></el-input>
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <el-button @click="closeRenameDialog()">{{ $t('fileDetail.renameCancel') }}</el-button>
-                <el-button type="primary" @click="submitRename()" :loading="renameSaving" :disabled="!renameValidation.valid">{{ $t('fileDetail.renameConfirm') }}</el-button>
-            </template>
-        </el-dialog>
+
     </el-dialog>
 </template>
 
 <script>
 import { ElMessage } from 'element-plus';
 import fetchWithAuth from '@/utils/fetchWithAuth';
-import { validateFileId } from '@/utils/fileIdValidator';
 
 export default {
     name: 'FileDetailDialog',
@@ -182,16 +157,7 @@ export default {
                 FileName: '',
                 FileType: ''
             },
-            editSaving: false,
-            showRenameDialog: false,
-            renameForm: {
-                newFileId: ''
-            },
-            renameValidation: {
-                valid: true,
-                error: ''
-            },
-            renameSaving: false
+            editSaving: false
         }
     },
     computed: {
@@ -345,7 +311,7 @@ export default {
             this.editSaving = true;
             try {
                 const fileId = this.file.name;
-                const response = await fetchWithAuth(`/api/manage/metadata/${fileId}`, {
+                const response = await fetchWithAuth(`/api/manage/metadata/${fileId.split('/').map(encodeURIComponent).join('/')}`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json'
@@ -357,7 +323,8 @@ export default {
                     const data = await response.json();
                     ElMessage.success(this.$t('fileDetail.metadataSaved'));
                     this.isEditing = false;
-                    this.$emit('metadataUpdated', fileId, data.metadata);
+                    if (data.newFileId && data.newFileId !== fileId) this.$emit('fileRenamed', fileId, data.newFileId, data.metadata);
+                    else this.$emit('metadataUpdated', fileId, data.metadata);
                 } else {
                     const error = await response.json().catch(() => ({}));
                     throw new Error(error.message || this.$t('fileDetail.metadataSaveFailed'));
@@ -367,65 +334,6 @@ export default {
                 ElMessage.error(error.message || this.$t('fileDetail.metadataSaveFailed'));
             } finally {
                 this.editSaving = false;
-            }
-        },
-        openRenameDialog() {
-            this.renameForm.newFileId = this.file?.name || '';
-            this.renameValidation = { valid: true, error: '' };
-            this.showRenameDialog = true;
-        },
-        closeRenameDialog() {
-            this.showRenameDialog = false;
-            this.renameForm.newFileId = '';
-            this.renameValidation = { valid: true, error: '' };
-        },
-        validateRenameInput() {
-            const result = validateFileId(this.renameForm.newFileId, this.file?.name || '');
-            this.renameValidation = {
-                valid: result.valid,
-                error: result.error || ''
-            };
-        },
-        async submitRename() {
-            if (this.renameSaving) return;
-
-            // Validate input first
-            this.validateRenameInput();
-            if (!this.renameValidation.valid) {
-                return;
-            }
-
-            this.renameSaving = true;
-            try {
-                const oldFileId = this.file.name;
-                const response = await fetchWithAuth(`/api/manage/rename/${oldFileId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ newFileId: this.renameForm.newFileId })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    ElMessage.success(this.$t('fileDetail.renameSuccess'));
-                    this.showRenameDialog = false;
-                    this.$emit('fileRenamed', oldFileId, this.renameForm.newFileId, data.metadata);
-                } else if (response.status === 409) {
-                    // Conflict — target File_ID already exists
-                    this.renameValidation = {
-                        valid: false,
-                        error: this.$t('fileDetail.renameConflict')
-                    };
-                } else {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.message || this.$t('fileDetail.renameFailed'));
-                }
-            } catch (error) {
-                console.error('Error renaming file:', error);
-                ElMessage.error(error.message || this.$t('fileDetail.renameFailed'));
-            } finally {
-                this.renameSaving = false;
             }
         }
     }

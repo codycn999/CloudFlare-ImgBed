@@ -19,7 +19,7 @@ export function withFileIdentity(db) {
     const rawGetWithMetadata = db.getWithMetadata.bind(db);
 
     db.isPathReserved = async (path, allowedId = '') => {
-        if (isFixedId(path) && path !== allowedId) return true;
+        if (isFixedId(path)) return true;
         const owner = await rawGet(await aliasKey(path));
         return !!owner && owner !== allowedId;
     };
@@ -27,6 +27,7 @@ export function withFileIdentity(db) {
     db.put = async (key, value, options = {}) => {
         if (!isFile(key, options.metadata)) return rawPut(key, value, options);
         const metadata = options.metadata;
+        if (metadata.NamePolicyVersion === 1) metadata.FileName = key.split('/').pop();
         const existing = await rawGetWithMetadata(key);
         // The identity of an existing file cannot be changed by metadata updates.
         if (isFixedId(existing?.metadata?.FixedId)) metadata.FixedId = existing.metadata.FixedId;

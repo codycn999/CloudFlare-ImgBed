@@ -173,7 +173,7 @@ async function handleChannelBasedMerge(context, uploadId, totalChunks, originalF
             TimeStamp: Date.now(),
             Label: "None",
             Directory: normalizedFolder === '' ? '' : normalizedFolder + '/',
-            Tags: []
+            Tags: [], NamePolicyVersion: 1
         };
 
         // 收集所有已上传的分块信息

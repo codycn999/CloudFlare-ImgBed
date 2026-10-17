@@ -15,4 +15,5 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node --test tests/file-identity.test.mjs tests/telegram-webhook.test.mjs
       - run: node --import ./deploy/server/register.mjs --test tests/permanent-link-integration.test.mjs
+      - run: node --import ./deploy/server/register.mjs --test tests/unified-names.test.mjs
       - run: npx wrangler pages functions build functions --outdir .wrangler/identity-build

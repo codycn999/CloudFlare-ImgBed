@@ -2,6 +2,7 @@ import { addFileToIndex } from '../../../utils/indexManager.js';
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { buildFileMetadataForManagement } from '../../../utils/metadata/metadataView.js';
 import { cleanPersistedMetadata } from '../../../utils/metadata/metadataSecurity.js';
+import { onRequest as renameFile } from '../rename/[[path]].js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -73,6 +74,13 @@ export async function onRequest(context) {
         }
 
         const db = getDatabase(env);
+
+        if (typeof body.FileName === 'string') {
+            return renameFile({ ...context, request: new Request(request.url, {
+                method: 'POST', headers: request.headers,
+                body: JSON.stringify({ newFileName: body.FileName, ...(typeof body.FileType === 'string' ? { FileType: body.FileType } : {}) })
+            }) });
+        }
 
         // 获取当前文件数据
         const fileData = await db.getWithMetadata(fileId);

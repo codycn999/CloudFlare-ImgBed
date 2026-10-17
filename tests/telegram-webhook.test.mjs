@@ -5,6 +5,7 @@ import { createTelegramWebhookHandler } from '../functions/utils/telegramWebhook
 const secret = 'test-secret-that-is-at-least-32-characters';
 function fixture() {
     const records = new Map();
+    const settings = new Map();
     const calls = [];
     const indexed = [];
     const env = { TG_WEBHOOK_SECRET: secret, TG_UPLOAD_ALLOWED_USER_IDS: '123',
@@ -19,8 +20,9 @@ function fixture() {
     const services = {
         fetchUploadConfig: async () => config, createAPI: () => api,
         getDatabase: () => ({
+            get: async key => key.startsWith('manage@') ? settings.get(key) ?? null : records.get(key)?.value ?? null,
             getWithMetadata: async key => records.get(key) || { value: null, metadata: null },
-            put: async (key, value, options) => records.set(key, structuredClone({ value, metadata: options.metadata }))
+            put: async (key, value, options = {}) => key.startsWith('manage@') ? settings.set(key, value) : records.set(key, structuredClone({ value, metadata: options.metadata }))
         }),
         sanitizeUploadFolder: folder => folder.replace(/^\/+|\/+$/g, ''),
         moderateContent: async () => 'None',
@@ -58,7 +60,7 @@ test('private photo is copied to the channel, indexed and replied with a working
     assert.deepEqual(f.calls.find(c => c.method === 'copyMessage').body,
         { chat_id: '-100123', from_chat_id: 123, message_id: 7 });
     assert.match(f.calls.find(c => c.method === 'sendMessage').body.text,
-        /https:\/\/img.example.com\/file\/Telegram\/tg_456_123_7.jpg/);
+        /https:\/\/img.example.com\/file\/Telegram\/photo.jpg/);
     assert.ok(!JSON.stringify(metadata).includes('fake'));
 });
 
@@ -100,6 +102,17 @@ test('retries reuse the saved record and do not repeat channel copy or index wri
     assert.equal(f.indexed.length, 1);
 });
 
+test('separate messages with the same filename keep both files with matching names and paths', async () => {
+    const f = fixture();
+    await f.run();
+    f.update.message.message_id++;
+    await f.run();
+    assert.equal(f.records.size, 2);
+    assert.ok(f.records.has('Telegram/photo.jpg'));
+    assert.ok(f.records.has('Telegram/photo (2).jpg'));
+    assert.equal(f.records.get('Telegram/photo (2).jpg').metadata.FileName, 'photo (2).jpg');
+});
+
 test('failed indexing returns retry status and can resume without copying again', async () => {
     const f = fixture();
     const original = f.services.addFileToIndex;
@@ -135,9 +148,9 @@ test('documents retain original names and MIME types with safe storage keys', as
         file_name: '../照片 #1%.heic', mime_type: 'image/heic' };
     await f.run();
     const [{ metadata }] = f.records.values();
-    assert.equal(metadata.FileName, '照片 #1%.heic');
+    assert.equal(metadata.FileName, '照片 _1_.heic');
     assert.equal(metadata.FileType, 'image/heic');
-    assert.match(f.calls.find(c => c.method === 'sendMessage').body.text, /\/Telegram\/tg_456_123_7.heic/);
+    assert.match(f.calls.find(c => c.method === 'sendMessage').body.text, /\/Telegram\/%E7%85%A7%E7%89%87%20_1_.heic/);
 });
 
 test('oversize and unknown-size files receive guidance without being registered', async () => {

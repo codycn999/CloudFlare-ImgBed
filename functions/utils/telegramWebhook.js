@@ -1,3 +1,6 @@
+import { chooseFilePath, uploadFileName } from './fileNaming.js';
+import { resolveFilePath } from './fileIdentity.js';
+
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const SECRET_HEADER = 'X-Telegram-Bot-Api-Secret-Token';
 
@@ -94,14 +97,22 @@ export function createTelegramWebhookHandler(services) {
                 return response('Public URL must be an HTTPS origin', 503);
             }
             const folder = services.sanitizeUploadFolder(env.TG_UPLOAD_FOLDER || 'Telegram');
-            const name = file.file_name.split(/[\\/]/).pop().replace(/[\u0000-\u001f\u007f]/g, '_').slice(-180) || 'file.bin';
+            let name = uploadFileName(file.file_name || 'file.bin');
             // The same bot/chat/message always maps to one record on Telegram retries.
             const botId = channel.botToken.split(':')[0];
             // Keep the storage key ASCII-safe: the existing file route decodes IDs
             // and treats commas as path separators. Preserve the original name in metadata.
             const extension = name.match(/\.([a-zA-Z0-9]{1,12})$/)?.[1].toLowerCase() || 'bin';
-            const fileId = `${folder ? folder + '/' : ''}tg_${botId}_${message.chat.id}_${message.message_id}.${extension}`;
+            const legacyFileId = `${folder ? folder + '/' : ''}tg_${botId}_${message.chat.id}_${message.message_id}.${extension}`;
             const db = services.getDatabase(env);
+            const receiptKey = `manage@telegramImport@${botId}_${message.chat.id}_${message.message_id}`;
+            const receipt = await db.get(receiptKey);
+            let fileId = receipt ? await resolveFilePath(db, receipt) : await resolveFilePath(db, legacyFileId) || legacyFileId;
+            if (!fileId) return response('Previously imported file was deleted');
+            if (!receipt && !(await db.getWithMetadata(fileId))?.metadata) {
+                fileId = await chooseFilePath(db, folder, name);
+                name = fileId.split('/').pop();
+            }
             const existing = await db.getWithMetadata(fileId);
             let metadata = existing?.metadata;
             if (!metadata) {
@@ -121,11 +132,12 @@ export function createTelegramWebhookHandler(services) {
                     UploadIP: null, UploadAddress: 'Telegram Bot', ListType: 'None',
                     TimeStamp: Date.now(), Label: label, Directory: folder ? folder + '/' : '', Tags: [],
                     Channel: 'TelegramNew', ChannelName: channel.name, TgFileId: file.file_id,
-                    TgImportIndexed: false,
+                    TgImportIndexed: false, NamePolicyVersion: 1,
                     ...(file.width && file.height ? { Width: file.width, Height: file.height } : {})
                 };
                 await db.put(fileId, '', { metadata });
             }
+            if (!receipt) await db.put(receiptKey, metadata.FixedId || fileId);
             if (!metadata.TgImportIndexed) {
                 const indexResult = await services.addFileToIndex(context, fileId, metadata);
                 if (!indexResult.success) throw new Error('Index write failed');
