@@ -1,3 +1,4 @@
+import { updateFolderEntries } from '../../../utils/organizationCatalog.js';
 import { S3Client, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "../../../utils/purgeCache";
 import { moveFileInIndex, batchMoveFilesInIndex } from "../../../utils/indexManager.js";
@@ -71,6 +72,12 @@ export async function onRequest(context) {
                         dist: folderDist
                     });
                 }
+            }
+
+            if (failedFiles.length === 0) {
+                const source = params.path.split(',').join('/');
+                const destination = (dist ? dist + '/' : '') + source.split('/').pop();
+                if (source !== destination) await updateFolderEntries(getDatabase(env), source, destination);
             }
 
             // 批量从索引中删除文件，添加新文件

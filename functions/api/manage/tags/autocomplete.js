@@ -1,3 +1,5 @@
+import { catalogEntries } from '../../../utils/organizationCatalog.js';
+import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { readIndex } from "../../../utils/indexManager.js";
 import { filterTagsByPrefix } from "../../../utils/tagHelpers.js";
 
@@ -46,7 +48,8 @@ export async function onRequest(context) {
             includeSubdirFiles: true
         });
 
-        if (!result.success) {
+        const definedTags = (await catalogEntries(getDatabase(context.env), 'tag')).map(tag => tag.name);
+        if (!result.success && !definedTags.length) {
             return new Response(JSON.stringify({
                 error: 'Failed to read index',
                 message: 'Index not available'
@@ -57,8 +60,8 @@ export async function onRequest(context) {
         }
 
         // Extract unique tags from files
-        const allTags = new Set();
-        for (const file of result.files) {
+        const allTags = new Set(definedTags);
+        for (const file of result.files || []) {
             if (file.metadata && Array.isArray(file.metadata.Tags)) {
                 file.metadata.Tags.forEach(tag => {
                     if (tag && typeof tag === 'string') {

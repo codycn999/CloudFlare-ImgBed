@@ -113,6 +113,9 @@ export async function authenticate({
         return AUTHORIZED('admin');
     }
 
+    // A supplied credential must not fall back to an anonymous admin or cookie.
+    if (request.headers.has('Authorization')) return UNAUTHORIZED;
+
     // --- 会话/凭据验证 ---
     const adminCtx = { env, request, adminConfigured };
     const userCtx = { env, request, url, authCodeConfigured, userAuthCode };
