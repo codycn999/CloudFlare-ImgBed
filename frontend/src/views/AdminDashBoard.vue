@@ -1,13 +1,6 @@
 <template>
     <div class="container">
-        <el-alert v-if="normalizationRunning || normalizationError || normalizationResult?.renamed || normalizationResult?.skipped" :type="normalizationError || normalizationResult?.skipped ? 'warning' : 'info'" :closable="!normalizationRunning" style="margin-bottom: 12px">
-            <div v-if="normalizationRunning">{{ $t('dashboard.normalizingNames') }}</div>
-            <div v-else-if="normalizationError">{{ $t('dashboard.nameNormalizationFailed') }}</div>
-            <div v-else>{{ $t('dashboard.nameNormalizationDone', { count: normalizationResult?.renamed || 0, conflicts: normalizationResult?.conflictsResolved || 0 }) }}</div>
-            <div v-if="normalizationResult?.skipped">{{ $t('dashboard.nameNormalizationSkipped', { count: normalizationResult.skipped }) }}</div>
-            <ul v-if="normalizationResult?.errors?.length"><li v-for="item in normalizationResult.errors" :key="item.path">{{ item.path }}：{{ item.reason }}</li></ul>
-            <el-button v-if="!normalizationRunning && (normalizationError || normalizationResult?.skipped)" link type="primary" @click="retryNameNormalization">{{ $t('dashboard.retryNameNormalization') }}</el-button>
-        </el-alert>
+
         <el-container>
             <el-header>
             <div class="header-content">
@@ -97,6 +90,14 @@
             </div>
             </el-header>
             <el-main class="main-container">
+        <el-alert v-if="normalizationRunning || normalizationError || normalizationResult?.skipped" :type="normalizationError || normalizationResult?.skipped ? 'warning' : 'info'" :closable="!normalizationRunning" style="margin-bottom: 12px">
+            <div v-if="normalizationRunning">{{ $t('dashboard.normalizingNames') }}</div>
+            <div v-else-if="normalizationError">{{ $t('dashboard.nameNormalizationFailed') }}</div>
+            <div v-else>{{ $t('dashboard.nameNormalizationDone', { count: normalizationResult?.renamed || 0, conflicts: normalizationResult?.conflictsResolved || 0 }) }}</div>
+            <div v-if="normalizationResult?.skipped">{{ $t('dashboard.nameNormalizationSkipped', { count: normalizationResult.skipped }) }}</div>
+            <ul v-if="normalizationResult?.errors?.length"><li v-for="item in normalizationResult.errors" :key="item.path">{{ item.path }}：{{ item.reason }}</li></ul>
+            <el-button v-if="!normalizationRunning && (normalizationError || normalizationResult?.skipped)" link type="primary" @click="retryNameNormalization">{{ $t('dashboard.retryNameNormalization') }}</el-button>
+        </el-alert>
             <!-- 目录导航 -->
             <div class="breadcrumb-container">
                 <!-- 移动端目录按钮 -->
@@ -119,18 +120,18 @@
                         </el-breadcrumb-item>
                     </el-breadcrumb>
                 </div>
-                <span class="stats-badge" :title="$t('dashboard.totalFiles', { count: $data.Number })">
-                    <font-awesome-icon icon="database" class="stats-badge-icon"/>
-                    {{ Number }}
-                </span>
-            </div>
-            
             <div class="batch-toolbar" role="toolbar" :aria-label="$t('dashboard.batchActions')">
                 <span class="selection-count">{{ $t('dashboard.selectedCount', { count: selectedFiles.length }) }}</span>
                 <el-tooltip v-for="action in batchHeaderActions" :key="action.command" :content="$t('dashboard.' + action.command)" placement="top">
                     <span><button class="batch-header-button" :class="{ danger: action.command === 'delete' }" :aria-label="$t('dashboard.' + action.command)" :disabled="loading || !selectedFiles.length || (action.command === 'download' && !selectedFiles.some(file => !file.isFolder))" @click="handleBatchAction(action.command)"><font-awesome-icon :icon="action.icon" /></button></span>
                 </el-tooltip>
             </div>
+                <span class="stats-badge" :title="$t('dashboard.totalFiles', { count: $data.Number })">
+                    <font-awesome-icon icon="database" class="stats-badge-icon"/>
+                    {{ Number }}
+                </span>
+            </div>
+            
             <!-- 卡片视图 -->
             <div v-if="viewMode === 'card'" class="content" ref="cardContainerRef">
                 <!-- 加载骨架屏 -->
@@ -2921,4 +2922,56 @@ html.dark .header-content:hover {
 
 .column-settings-btn { border: 0; background: transparent; padding: 0; cursor: pointer; }
 .column-options { display: flex; flex-direction: column; margin-bottom: 12px; }
+/* Compact overview: the sticky header remains in normal flow, so no viewport-sized spacer is needed. */
+.container { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+.container > :deep(.el-container) > .el-header { height: auto; padding: 8px 24px 0; position: sticky; top: 0; z-index: 2001; }
+.header-content { position: relative; top: auto; left: auto; transform: none; width: 100%; box-sizing: border-box; min-height: 52px; padding: 8px 16px; border-radius: 12px; gap: 16px; box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+.header-content:hover { transform: none; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+html.dark .header-content, html.dark .header-content:hover { background: rgba(28,30,34,.92); box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+.header-icon, .header-content :deep(.filter-trigger .header-icon) { font-size: 19px; }
+.header-icon:hover { transform: none; }
+.header-content .actions { gap: 14px; margin-top: 0; }
+.search-area { margin-right: 0; margin-top: 0; gap: 10px; }
+.search-card :deep(.el-input__wrapper) { border-radius: 9px; }
+.search-card :deep(.el-input__inner), .search-card :deep(.el-input__inner:focus) { height: 32px; width: clamp(160px, 20vw, 300px); font-size: 13px; }
+.search-card :deep(.el-input__inner::placeholder) { font-style: normal; letter-spacing: 0; }
+.main-container { padding: 10px 24px 24px; margin-top: 0; min-height: calc(100vh - 68px); scroll-margin-top: 76px; }
+.breadcrumb-container { padding: 0; gap: 10px; margin: 0 0 10px; min-height: 32px; }
+.breadcrumb { min-width: 0; padding: 7px 10px; border-radius: 8px; box-shadow: none; overflow-wrap: anywhere; }
+.breadcrumb:hover { transform: none; box-shadow: none; }
+.batch-toolbar { margin: 0 0 0 auto; padding: 0; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
+.selection-count { white-space: nowrap; margin-right: 6px; font-size: 12px; color: var(--el-text-color-secondary); }
+.batch-header-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; font-size: 15px; border-radius: 7px; }
+.stats-badge { border-radius: 7px; padding: 4px 8px; }
+.list-view { margin-top: 0; border-radius: 10px; box-shadow: none; border: 1px solid var(--el-border-color-lighter); }
+.list-header { padding: 9px 16px; font-size: 12px; }
+.list-view :deep(.list-item) { padding: 8px 16px; }
+.content { padding: 0; gap: 14px; grid-template-rows: none; align-content: start; flex-grow: 0; min-height: 0; }
+@media (max-width: 1050px) and (min-width: 769px) {
+    .header-content { flex-wrap: wrap; gap: 8px 14px; }
+    .header-content .actions { margin-left: auto; }
+}
+@media (max-width: 768px) {
+    .container > :deep(.el-container) > .el-header { padding: 6px 12px 0; }
+    .header-content { flex-direction: row; flex-wrap: wrap; justify-content: space-between; padding: 8px 10px; gap: 8px; width: 100%; }
+    .header-content .actions { width: 100%; justify-content: space-between; gap: 8px; }
+    .search-area { margin-left: auto; }
+    .search-card :deep(.el-input__inner), .search-card :deep(.el-input__inner:focus) { width: clamp(80px, 20vw, 160px); height: 30px; }
+    .main-container { padding: 10px 12px 20px; margin-top: 0; scroll-margin-top: 132px; }
+    .breadcrumb-container { gap: 6px; flex-wrap: wrap; }
+    .mobile-directory-trigger { min-width: 0; padding: 6px 8px; }
+    .mobile-directory-path { max-width: 72px; }
+    .batch-toolbar { gap: 2px; }
+    .selection-count { margin-right: 2px; font-size: 11px; }
+    .batch-header-button { width: 30px; height: 30px; font-size: 14px; }
+    .stats-badge { font-size: 11px; padding: 3px 6px; }
+}
+@media (max-width: 420px) {
+    .search-area { order: 2; width: 100%; }
+    .search-card { flex: 1; }
+    .search-card :deep(.el-input__inner), .search-card :deep(.el-input__inner:focus) { width: 100%; }
+    .header-content .actions { order: 3; }
+    .main-container { scroll-margin-top: 166px; }
+}
+
 </style>
