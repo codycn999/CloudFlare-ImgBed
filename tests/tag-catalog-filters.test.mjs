@@ -31,3 +31,10 @@ test('rename continues across batches and safely repeats after interruption',asy
  let cursor;do{r=await(await catalog(f.context('POST',{action:'rename',name:'old',newName:'new',cursor}))).json();cursor=r.nextCursor;}while(cursor);
  const tags=(await(await catalog(f.context())).json()).tags;assert.deepEqual(tags,[{name:'new',count:35}]);await Promise.all(f.tasks);
 });
+test('PDF filter recognizes MIME and generic uploads, combines with tags and excludes PDFs from other',async()=>{
+ const f=fixture();await file(f,'manual.pdf',['work'],'application/pdf');await file(f,'scan.PDF',['travel'],'application/octet-stream');await file(f,'legacy.pdf',['work'],'');await file(f,'notes.txt',['work'],'text/plain');await file(f,'photo.png',['work'],'image/png');await rebuildIndex(f.context());
+ const names=async query=>(await(await list(f.context('GET',null,'https://example.test/api/manage/list?'+query))).json()).files.map(f=>f.name).sort();
+ assert.deepEqual(await names('fileType=pdf'),['legacy.pdf','manual.pdf','scan.PDF']);
+ assert.deepEqual(await names('fileType=other'),['notes.txt']);
+ assert.deepEqual(await names('fileType=pdf,image&tagGroup1=work'),['legacy.pdf','manual.pdf','photo.png']);await Promise.all(f.tasks);
+});
