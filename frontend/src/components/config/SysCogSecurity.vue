@@ -56,6 +56,11 @@
                     </el-button>
                 </a>
             </h4>
+            <el-alert type="info" :closable="false" style="margin-bottom: 16px">
+                <p>{{ $t('sysSecurity.agentHelp') }}</p>
+                <el-button type="primary" size="small" @click="prepareAgentToken">{{ $t('sysSecurity.createAgentToken') }}</el-button>
+                <el-button size="small" @click="showAgentGuide = true">{{ $t('sysSecurity.agentGuide') }}</el-button>
+            </el-alert>
             <div class="token-table-container">
                 <el-table 
                     :data="apiTokens" 
@@ -226,6 +231,7 @@
                         <el-checkbox label="upload">{{ $t('sysSecurity.permUpload') }}</el-checkbox>
                         <el-checkbox label="delete">{{ $t('sysSecurity.permDelete') }}</el-checkbox>
                         <el-checkbox label="list">{{ $t('sysSecurity.permList') }}</el-checkbox>
+                        <el-checkbox label="organize">{{ $t('sysSecurity.permOrganize') }}</el-checkbox>
                         <el-checkbox label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
                     </el-checkbox-group>
                 </el-form-item>
@@ -263,6 +269,7 @@
                         <el-checkbox label="upload">{{ $t('sysSecurity.permUpload') }}</el-checkbox>
                         <el-checkbox label="delete">{{ $t('sysSecurity.permDelete') }}</el-checkbox>
                         <el-checkbox label="list">{{ $t('sysSecurity.permList') }}</el-checkbox>
+                        <el-checkbox label="organize">{{ $t('sysSecurity.permOrganize') }}</el-checkbox>
                         <el-checkbox label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
                     </el-checkbox-group>
                 </el-form-item>
@@ -289,6 +296,11 @@
             </template>
         </el-dialog>
 
+        <el-dialog v-model="showAgentGuide" :title="$t('sysSecurity.agentGuide')" :width="dialogWidth">
+            <p>{{ $t('sysSecurity.agentScope') }}</p>
+            <el-input :model-value="agentInstructions" type="textarea" :rows="12" readonly :aria-label="$t('sysSecurity.agentGuide')" />
+            <p>{{ $t('sysSecurity.agentKeyHint') }}</p>
+        </el-dialog>
         <!-- Token创建成功对话框 -->
         <el-dialog v-model="showTokenResultDialog" :title="$t('sysSecurity.tokenCreatedTitle')" :width="dialogWidth">
             <div class="token-result">
@@ -352,6 +364,7 @@ data() {
         clearAdminPassword: false, // 清除管理密码开关
 
         // Token对话框相关
+        showAgentGuide: false,
         showCreateTokenDialog: false,
         showEditTokenDialog: false,
         showTokenResultDialog: false,
@@ -390,6 +403,10 @@ data() {
     };
 },
 computed: {
+    agentInstructions() {
+        return this.$t('sysSecurity.agentInstructions', { base: window.location.origin });
+    },
+
     dialogWidth() {
         return window.innerWidth > 768 ? '50%' : '90%';
     },
@@ -489,6 +506,11 @@ computed: {
     },
 },
 methods: {
+    prepareAgentToken() {
+        this.newToken = { name: 'AI Agent', owner: 'Agent', permissions: ['organize'], neverExpire: false, expirationValue: 7, expirationUnit: 'd', autoDelete: false };
+        this.showCreateTokenDialog = true;
+    },
+
     handleUserPassInput() {
         if (this.authSettings.user.authCode !== this.oriUserPassword) {
             this.showUserPassConfirm = true;
@@ -521,6 +543,7 @@ methods: {
     getPermissionText(permission) {
         const permissionMap = {
             'upload': this.$t('sysSecurity.permUpload'),
+            'organize': this.$t('sysSecurity.permOrganize'),
             'delete': this.$t('sysSecurity.permDelete'), 
             'list': this.$t('sysSecurity.permList'),
             'manage': this.$t('sysSecurity.permManage')

@@ -37,12 +37,12 @@ export async function validateApiToken(request, db, requiredPermission) {
     }
 
     // 检查Token是否已过期
-    if (isExpired(tokenData.expiresAt)) {
+    if (isExpired(tokenData.expiresAt) || (tokenData.expiresAt != null && !Number.isFinite(Date.parse(tokenData.expiresAt)))) {
         return { valid: false, error: 'Token 已过期' };
     }
 
     // 检查权限，如果不需要特定权限（requiredPermission为null），则只要token有效就通过
-    if (requiredPermission !== null && !tokenData.permissions.includes(requiredPermission)) {
+    if (requiredPermission !== null && (!Array.isArray(tokenData.permissions) || !tokenData.permissions.includes(requiredPermission))) {
         return { valid: false, error: `缺少${requiredPermission}权限` };
     }
 

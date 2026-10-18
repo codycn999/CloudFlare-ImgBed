@@ -1,3 +1,4 @@
+import { storedSubfolders } from '../../utils/organizationCatalog.js';
 import {
     readIndex, mergeOperationsToIndex, deleteAllOperations, rebuildIndex,
     getIndexInfo, getIndexStorageStats
@@ -156,16 +157,20 @@ export async function onRequest(context) {
             includeSubdirFiles: recursive,
         });
 
+        const storedFolders = search || channelArray.length || listTypeArray.length || accessStatusArray.length || labelArray.length || fileTypeArray.length || channelNameArray.length || includeTagsArray.length || excludeTagsArray.length ? [] : await storedSubfolders(getDatabase(context.env), dir);
+
         // 索引读取失败，直接从 KV 中获取所有文件记录
         if (!result.success) {
-            const dbRecords = await getAllFileRecords(context.env, dir);
+            const dbRecords = await getAllFileRecords(context.env, dir, recursive);
+            if (count !== -1) dbRecords.files = dbRecords.files.slice(Math.max(0, start), Math.max(0, start) + Math.max(1, count));
+            dbRecords.returnedCount = dbRecords.files.length;
 
             return new Response(JSON.stringify({
                 files: dbRecords.files,
-                directories: dbRecords.directories,
+                directories: [...new Set([...dbRecords.directories, ...storedFolders])],
                 totalCount: dbRecords.totalCount,
                 directFileCount: dbRecords.directFileCount,
-                directFolderCount: dbRecords.directFolderCount,
+                directFolderCount: new Set([...dbRecords.directories, ...storedFolders]).size,
                 returnedCount: dbRecords.returnedCount,
                 indexLastUpdated: Date.now(),
                 isIndexedResponse: false // 标记这是来自 KV 的响应
@@ -184,10 +189,10 @@ export async function onRequest(context) {
 
         return new Response(JSON.stringify({
             files: compatibleFiles,
-            directories: result.directories,
+            directories: [...new Set([...result.directories, ...storedFolders])],
             totalCount: result.totalCount,
             directFileCount: result.directFileCount,
-            directFolderCount: result.directFolderCount,
+            directFolderCount: new Set([...result.directories, ...storedFolders]).size,
             returnedCount: result.returnedCount,
             indexLastUpdated: result.indexLastUpdated,
             isIndexedResponse: true // 标记这是来自索引的响应
@@ -207,7 +212,7 @@ export async function onRequest(context) {
     }
 }
 
-async function getAllFileRecords(env, dir) {
+async function getAllFileRecords(env, dir, recursive = false) {
     const allRecords = [];
     let cursor = null;
 
@@ -253,12 +258,15 @@ async function getAllFileRecords(env, dir) {
         // 提取目录信息
         const directories = new Set();
         const filteredRecords = [];
+        let directCount = 0;
         allRecords.forEach(item => {
             const subDir = item.name.substring(dir.length);
             const firstSlashIndex = subDir.indexOf('/');
             if (firstSlashIndex !== -1) {
                 directories.add(dir + subDir.substring(0, firstSlashIndex));
+                if (recursive) filteredRecords.push(item);
             } else {
+                directCount++;
                 filteredRecords.push(item);
             }
         });
@@ -267,7 +275,7 @@ async function getAllFileRecords(env, dir) {
             files: filteredRecords,
             directories: Array.from(directories),
             totalCount: allRecords.length,
-            directFileCount: filteredRecords.length,
+            directFileCount: directCount,
             directFolderCount: directories.size,
             returnedCount: filteredRecords.length
         };
