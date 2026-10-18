@@ -231,13 +231,16 @@
     "visibleColumns": "Visible columns",
     "requiredColumns": "Filename, selection and actions are always visible.",
     "resetColumns": "Reset columns",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "batchActions": "Batch actions",
+    "selectedCount": "{count} selected"
   },
   "dashboardTabs": {
     "fileManagement": "File Management",
     "userManagement": "User Management",
     "systemSettings": "System Settings",
-    "fileUpload": "File Upload"
+    "fileUpload": "File Upload",
+    "navigation": "Page navigation"
   },
   "fileDetail": {
     "title": "File Details",
@@ -689,7 +692,9 @@
     "copyFullToken": "Copy full key",
     "copyAdminRequired": "Sign in as an administrator to copy keys.",
     "copyTokenMissing": "This key was deleted or is unavailable. Refresh the list.",
-    "copyTokenFailed": "Unable to retrieve the key. Please retry."
+    "copyTokenFailed": "Unable to retrieve the key. Please retry.",
+    "expirationEditHint": "Changing the duration starts a new period when saved. Otherwise the deadline stays unchanged.",
+    "legacyExpirationHint": "This older key has no saved duration; the remaining time is shown. The deadline is preserved unless you change the duration."
   },
   "sysPage": {
     "settingsSaved": "Settings saved",

@@ -244,9 +244,9 @@
                     <el-switch v-model="newToken.neverExpire" @change="onCreateNeverExpireChange"/>
                 </el-form-item>
                 <el-form-item v-if="!newToken.neverExpire" :label="$t('sysSecurity.validPeriod')" prop="expirationValue">
-                    <div style="display: flex; gap: 10px; width: 100%;">
-                        <el-input-number v-model="newToken.expirationValue" :min="1" :step="1" controls-position="right" style="flex: 1;"/>
-                        <el-select v-model="newToken.expirationUnit" style="width: 100px;">
+                    <div class="expiration-fields">
+                        <el-input-number v-model="newToken.expirationValue" :min="1" :step="1" controls-position="right" :precision="0" class="expiration-number"/>
+                        <el-select v-model="newToken.expirationUnit" class="expiration-unit">
                             <el-option v-for="opt in timeUnitOptions" :key="opt.value" :label="$t(opt.labelKey)" :value="opt.value"/>
                         </el-select>
                     </div>
@@ -282,12 +282,16 @@
                     <el-switch v-model="editingToken.neverExpire" @change="onEditNeverExpireChange"/>
                 </el-form-item>
                 <el-form-item v-if="!editingToken.neverExpire" :label="$t('sysSecurity.validPeriod')" prop="expirationValue">
-                    <div style="display: flex; gap: 10px; width: 100%;">
-                        <el-input-number v-model="editingToken.expirationValue" :min="1" :step="1" controls-position="right" style="flex: 1;"/>
-                        <el-select v-model="editingToken.expirationUnit" style="width: 100px;">
+                    <div class="expiration-fields">
+                        <el-input-number v-model="editingToken.expirationValue" :min="1" :step="1" controls-position="right" :precision="0" class="expiration-number"/>
+                        <el-select v-model="editingToken.expirationUnit" class="expiration-unit">
                             <el-option v-for="opt in timeUnitOptions" :key="opt.value" :label="$t(opt.labelKey)" :value="opt.value"/>
                         </el-select>
                     </div>
+                </el-form-item>
+                <el-form-item v-if="editingToken.originalExpiresAt" :label="$t('sysSecurity.expiresAt')">
+                    <span>{{ getTokenStatus(editingToken.originalExpiresAt).expiresText }}</span>
+                    <small class="expiration-hint">{{ $t(editingToken.legacyExpiration ? 'sysSecurity.legacyExpirationHint' : 'sysSecurity.expirationEditHint') }}</small>
                 </el-form-item>
                 <el-form-item v-if="!editingToken.neverExpire" :label="$t('sysSecurity.autoDeleteOnExpire')">
                     <el-switch v-model="editingToken.autoDelete"/>
@@ -342,7 +346,7 @@
 <script>
 import fetchWithAuth from '@/utils/fetchWithAuth';
 import FloatingSaveButton from '@/components/FloatingSaveButton.vue';
-import { computeExpiresAt, getTokenStatus } from '@/utils/tokenExpiration';
+import { computeExpiresAt, getTokenStatus, expirationEditor, expirationUpdate } from '@/utils/tokenExpiration';
 
 export default {
 components: {
@@ -603,6 +607,8 @@ methods: {
                         name: this.newToken.name,
                         owner: this.newToken.owner,
                         permissions: this.newToken.permissions,
+                        expirationValue: this.newToken.neverExpire ? null : this.newToken.expirationValue,
+                        expirationUnit: this.newToken.neverExpire ? null : this.newToken.expirationUnit,
                         expiresAt,
                         autoDelete
                     })
@@ -630,15 +636,13 @@ methods: {
     },
     
     editToken(token) {
-        const hasExpiration = token.expiresAt !== null && token.expiresAt !== undefined;
+
         this.editingToken = {
             id: token.id,
             name: token.name,
             owner: token.owner,
             permissions: [...token.permissions],
-            neverExpire: !hasExpiration,
-            expirationValue: 1,
-            expirationUnit: 'd',
+            ...expirationEditor(token),
             autoDelete: token.autoDelete || false
         };
         this.showEditTokenDialog = true;
@@ -649,13 +653,8 @@ methods: {
             if (!valid) return;
             
             try {
-                let expiresAt = null;
-                let autoDelete = false;
-                if (!this.editingToken.neverExpire) {
-                    expiresAt = computeExpiresAt(new Date(), this.editingToken.expirationValue, this.editingToken.expirationUnit);
-                    autoDelete = this.editingToken.autoDelete;
-                }
-                
+                const expiration = expirationUpdate(this.editingToken);
+
                 const response = await fetchWithAuth('/api/manage/apiTokens', {
                     method: 'PUT',
                     headers: {
@@ -664,16 +663,16 @@ methods: {
                     body: JSON.stringify({
                         tokenId: this.editingToken.id,
                         permissions: this.editingToken.permissions,
-                        expiresAt,
-                        autoDelete
+                        ...expiration
                     })
                 });
                 
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (response.ok && data.success) {
                     this.showEditTokenDialog = false;
-                    await this.loadApiTokens();
+                    const index = this.apiTokens.findIndex(token => token.id === this.editingToken.id);
+                    if (index !== -1) this.apiTokens[index] = { ...this.apiTokens[index], ...data.settings };
                     this.$message.success(this.$t('sysSecurity.tokenUpdateSuccess'));
                 } else {
                     this.$message.error(data.error || this.$t('sysSecurity.tokenUpdateFailed'));
@@ -895,6 +894,10 @@ mounted() {
 </script>
 
 <style scoped>
+.expiration-fields { display: flex; gap: 8px; flex-wrap: wrap; max-width: 100%; }
+.expiration-number { width: 116px; }
+.expiration-unit { width: 88px; }
+.expiration-hint { display: block; width: 100%; color: var(--el-text-color-secondary); line-height: 1.5; }
 .security-settings {
     padding: 20px;
     min-height: 500px;
