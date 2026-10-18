@@ -72,10 +72,15 @@
                             <div class="table-cell-content">{{ scope.row.name }}</div>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="token" :label="$t('sysSecurity.tokenValue')" header-align="center">
+                    <el-table-column prop="token" min-width="180" :label="$t('sysSecurity.tokenValue')" header-align="center">
                         <template #default="scope">
-                            <div class="table-cell-content">
+                            <div class="table-cell-content token-copy-cell">
                                 <span class="token-display">{{ scope.row.token }}</span>
+                                <el-tooltip :content="$t('sysSecurity.copyFullToken')" placement="top">
+                                    <el-button link type="primary" :aria-label="$t('sysSecurity.copyFullToken')" :loading="copyingTokenId === scope.row.id" :disabled="!!copyingTokenId" @click="copyListedToken(scope.row)">
+                                        <font-awesome-icon v-if="copyingTokenId !== scope.row.id" icon="copy"/>
+                                    </el-button>
+                                </el-tooltip>
                             </div>
                         </template>
                     </el-table-column>
@@ -301,6 +306,10 @@
             <el-input :model-value="agentInstructions" type="textarea" :rows="12" readonly :aria-label="$t('sysSecurity.agentGuide')" />
             <p>{{ $t('sysSecurity.agentKeyHint') }}</p>
         </el-dialog>
+        <el-dialog v-model="showManualCopyDialog" :title="$t('sysSecurity.copyFullToken')" :width="dialogWidth" @closed="manualCopyToken = ''">
+            <p>{{ $t('sysSecurity.copyFailed') }}</p>
+            <el-input :model-value="manualCopyToken" readonly :aria-label="$t('sysSecurity.fullToken')" @focus="$event.target.select()" />
+        </el-dialog>
         <!-- Token创建成功对话框 -->
         <el-dialog v-model="showTokenResultDialog" :title="$t('sysSecurity.tokenCreatedTitle')" :width="dialogWidth">
             <div class="token-result">
@@ -364,6 +373,9 @@ data() {
         clearAdminPassword: false, // 清除管理密码开关
 
         // Token对话框相关
+        copyingTokenId: '',
+        showManualCopyDialog: false,
+        manualCopyToken: '',
         showAgentGuide: false,
         showCreateTokenDialog: false,
         showEditTokenDialog: false,
@@ -699,6 +711,30 @@ methods: {
         }
     },
     
+    async copyListedToken(token) {
+        if (this.copyingTokenId) return;
+        this.copyingTokenId = token.id;
+        try {
+            const response = await fetchWithAuth('/api/manage/apiTokens/copy', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tokenId: token.id })
+            });
+            if (!response.ok) {
+                this.$message.error(this.$t(response.status === 403 ? 'sysSecurity.copyAdminRequired' : response.status === 404 ? 'sysSecurity.copyTokenMissing' : 'sysSecurity.copyTokenFailed'));
+                return;
+            }
+            const data = await response.json();
+            if (typeof data.token !== 'string' || !data.token) throw new Error('Missing token');
+            try {
+                await navigator.clipboard.writeText(data.token);
+                this.$message.success(this.$t('sysSecurity.tokenCopied'));
+            } catch {
+                this.manualCopyToken = data.token;
+                this.showManualCopyDialog = true;
+            }
+        } catch { this.$message.error(this.$t('sysSecurity.copyTokenFailed')); }
+        finally { this.copyingTokenId = ''; }
+    },
     async copyToken() {
         try {
             await navigator.clipboard.writeText(this.createdToken.token);
@@ -1049,6 +1085,10 @@ mounted() {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.token-copy-cell { flex-wrap: nowrap; }
+.token-copy-cell .token-display { min-width: 0; white-space: nowrap; }
+.token-copy-cell .el-button { flex-shrink: 0; }
 
 /* 响应式布局 */
 @media (max-width: 768px) {
