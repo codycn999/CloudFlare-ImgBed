@@ -35,6 +35,8 @@ export async function onRequest(context) {
     let fileType = url.searchParams.get('fileType') || '';
     let channelName = url.searchParams.get('channelName') || '';
 
+    const tagGroup1 = (url.searchParams.get('tagGroup1') || '').split(',').map(t => t.trim()).filter(Boolean);
+    const tagGroup2 = (url.searchParams.get('tagGroup2') || '').split(',').map(t => t.trim()).filter(Boolean);
     // 处理搜索关键字
     if (search) {
         search = decodeURIComponent(search).trim();
@@ -128,6 +130,7 @@ export async function onRequest(context) {
                 fileType: fileTypeArray,
                 channelName: channelNameArray,
                 includeTags: includeTagsArray,
+            tagGroup1, tagGroup2,
                 excludeTags: excludeTagsArray,
                 countOnly: true
             });
@@ -153,14 +156,18 @@ export async function onRequest(context) {
             fileType: fileTypeArray,
             channelName: channelNameArray,
             includeTags: includeTagsArray,
+            tagGroup1, tagGroup2,
             excludeTags: excludeTagsArray,
             includeSubdirFiles: recursive,
         });
 
-        const storedFolders = search || channelArray.length || listTypeArray.length || accessStatusArray.length || labelArray.length || fileTypeArray.length || channelNameArray.length || includeTagsArray.length || excludeTagsArray.length ? [] : await storedSubfolders(getDatabase(context.env), dir);
+        const storedFolders = tagGroup1.length || tagGroup2.length || search || channelArray.length || listTypeArray.length || accessStatusArray.length || labelArray.length || fileTypeArray.length || channelNameArray.length || includeTagsArray.length || excludeTagsArray.length ? [] : await storedSubfolders(getDatabase(context.env), dir);
 
         // 索引读取失败，直接从 KV 中获取所有文件记录
         if (!result.success) {
+            if (tagGroup1.length || tagGroup2.length || fileTypeArray.length || includeTagsArray.length || excludeTagsArray.length) {
+                return new Response(JSON.stringify({ error: 'Index unavailable; retry after rebuilding the index' }), { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            }
             const dbRecords = await getAllFileRecords(context.env, dir, recursive);
             if (count !== -1) dbRecords.files = dbRecords.files.slice(Math.max(0, start), Math.max(0, start) + Math.max(1, count));
             dbRecords.returnedCount = dbRecords.files.length;

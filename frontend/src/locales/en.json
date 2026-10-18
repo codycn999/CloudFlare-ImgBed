@@ -230,7 +230,8 @@
     "invalidQuickName": "Enter a valid filename (up to 180 bytes), without paths, special characters or surrounding whitespace.",
     "visibleColumns": "Visible columns",
     "requiredColumns": "Filename, selection and actions are always visible.",
-    "resetColumns": "Reset columns"
+    "resetColumns": "Reset columns",
+    "nextPage": "Next page"
   },
   "dashboardTabs": {
     "fileManagement": "File Management",
@@ -310,7 +311,10 @@
     "channelType": "Channel Type",
     "externalLink": "External Link",
     "channelName": "Channel Name",
-    "clearFilters": "Clear Filters"
+    "clearFilters": "Clear Filters",
+    "tagGroup1": "Tag group 1 (any)",
+    "tagGroup2": "Tag group 2 (any)",
+    "groupHint": "Match any value within a group; match both groups and file type."
   },
   "moveFile": {
     "title": "Move File",
@@ -818,5 +822,20 @@
     "helpText": "You can try:",
     "uploadImage": "Upload Image",
     "refreshPage": "Refresh Page"
+  },
+  "tagCatalog": {
+    "title": "Tag library",
+    "hint": "Add future tags, delete unused tags, or rename a tag across all files. Existing destination tags are merged.",
+    "add": "Add",
+    "usage": "Files",
+    "actions": "Actions",
+    "rename": "Rename all",
+    "delete": "Delete",
+    "progress": "Processing: {count} files updated. Keep this dialog open.",
+    "failed": "Operation failed. Refresh and retry.",
+    "retry": "The operation did not finish; some files may be updated. Repeat the same rename to continue. Use letters, CJK, numbers, underscores or hyphens, up to 100 characters.",
+    "saved": "Saved",
+    "confirmDelete": "Delete unused tag “{name}”?",
+    "confirmRename": "Rename “{name}” on {count} files to (existing tags will merge):"
   }
 }

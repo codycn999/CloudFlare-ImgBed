@@ -7,6 +7,27 @@
         </span>
         <template #dropdown>
             <el-dropdown-menu class="filter-dropdown-menu">
+                <div class="filter-section" v-for="key in ['tagGroup1', 'tagGroup2']" :key="key">
+                    <div class="filter-title">{{ $t('filter.' + key) }}</div>
+                    <el-select v-model="localFilters[key]" multiple filterable clearable :teleported="false" style="width: 260px" @change="handleFilterChange(key)">
+                        <el-option v-for="tag in tagOptions" :key="tag" :label="tag" :value="tag" />
+                    </el-select>
+                </div>
+                <div class="filter-section">{{ $t('filter.groupHint') }}</div>
+                <!-- 文件类型 -->
+                <div class="filter-section">
+                    <div class="filter-title">{{ $t('filter.fileType') }}</div>
+                    <div class="filter-options">
+                        <el-checkbox-group v-model="localFilters.fileType" @change="handleFilterChange('fileType')">
+                            <el-checkbox 
+                                v-for="option in fileTypeOptions" 
+                                :key="'fileType-' + option.value"
+                                :label="option.value">
+                                {{ option.label }}
+                            </el-checkbox>
+                        </el-checkbox-group>
+                    </div>
+                </div>
                 <!-- 访问状态 -->
                 <div class="filter-section">
                     <div class="filter-title">{{ $t('filter.accessStatus') }}</div>
@@ -43,20 +64,6 @@
                             <el-checkbox 
                                 v-for="option in labelOptions" 
                                 :key="'label-' + option.value"
-                                :label="option.value">
-                                {{ option.label }}
-                            </el-checkbox>
-                        </el-checkbox-group>
-                    </div>
-                </div>
-                <!-- 文件类型 -->
-                <div class="filter-section">
-                    <div class="filter-title">{{ $t('filter.fileType') }}</div>
-                    <div class="filter-options">
-                        <el-checkbox-group v-model="localFilters.fileType" @change="handleFilterChange('fileType')">
-                            <el-checkbox 
-                                v-for="option in fileTypeOptions" 
-                                :key="'fileType-' + option.value"
                                 :label="option.value">
                                 {{ option.label }}
                             </el-checkbox>
@@ -108,12 +115,14 @@
 export default {
     name: 'FilterDropdown',
     props: {
+        tagOptions: { type: Array, default: () => [] },
         filters: {
             type: Object,
             default: () => ({
                 accessStatus: [],  // 访问状态: 'normal'(正常), 'blocked'(已屏蔽)
                 listType: [],      // 黑白名单: 'White', 'Block', 'none'
                 label: [],
+                tagGroup1: [], tagGroup2: [],
                 fileType: [],
                 channel: [],
                 channelName: []
@@ -131,6 +140,7 @@ export default {
                 accessStatus: [],
                 listType: [],
                 label: [],
+                tagGroup1: [], tagGroup2: [],
                 fileType: [],
                 channel: [],
                 channelName: []
@@ -210,6 +220,8 @@ export default {
                     accessStatus: Array.isArray(newFilters.accessStatus) ? [...newFilters.accessStatus] : [],
                     listType: Array.isArray(newFilters.listType) ? [...newFilters.listType] : [],
                     label: Array.isArray(newFilters.label) ? [...newFilters.label] : [],
+                    tagGroup1: [...(newFilters.tagGroup1 || [])],
+                    tagGroup2: [...(newFilters.tagGroup2 || [])],
                     fileType: Array.isArray(newFilters.fileType) ? [...newFilters.fileType] : [],
                     channel: Array.isArray(newFilters.channel) ? [...newFilters.channel] : [],
                     channelName: Array.isArray(newFilters.channelName) ? [...newFilters.channelName] : []
@@ -229,6 +241,7 @@ export default {
                 accessStatus: [],
                 listType: [],
                 label: [],
+                tagGroup1: [], tagGroup2: [],
                 fileType: [],
                 channel: [],
                 channelName: []

@@ -24,10 +24,14 @@
                     <FilterDropdown
                         v-model:filters="filters"
                         :channelNameOptions="channelNameOptions"
+                        :tagOptions="tagOptions"
                         @change="handleFilterChange"
                     />
                 </div>
                 <div class="actions">
+                <el-tooltip :content="$t('tagCatalog.title')" placement="bottom">
+                    <button class="column-settings-btn" :aria-label="$t('tagCatalog.title')" @click="showTagCatalog = true"><font-awesome-icon icon="tags" class="header-icon" /></button>
+                </el-tooltip>
                 <el-dropdown @command="sort" :hide-on-click="false">
                     <span class="el-dropdown-link">
                         <font-awesome-icon :icon="sortIcon" class="header-icon"></font-awesome-icon>
@@ -251,12 +255,13 @@
                     <el-pagination
                         background
                         layout="prev, pager, next"
-                        :total="filteredTableData.length"
+                        :total="directFolderCount + directFileCount"
                         :page-size="pageSize"
                         :current-page="currentPage"
                         :pager-count="pagerCount"
                         @current-change="handlePageChange">
                     </el-pagination>
+                    <el-button :disabled="loading || currentPage >= realTotalPages" @click="handlePageChange(currentPage + 1)">{{ $t('dashboard.nextPage') }}</el-button>
                     <el-button 
                         type="primary" 
                         @click="refreshFileList" 
@@ -369,6 +374,7 @@
             </div>
         </el-dialog>
 
+        <TagCatalogDialog v-model="showTagCatalog" @changed="handleCatalogChanged" />
         <!-- Tag Management Dialog -->
         <TagManagementDialog
             v-model="showTagDialog"
@@ -411,6 +417,7 @@
 import { mapGetters } from 'vuex';
 import JSZip from 'jszip';
 import DashboardTabs from '@/components/DashboardTabs.vue';
+import TagCatalogDialog from '@/components/dashboard/TagCatalogDialog.vue';
 import TagManagementDialog from '@/components/dashboard/TagManagementDialog.vue';
 import BatchTagDialog from '@/components/dashboard/BatchTagDialog.vue';
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader.vue';
@@ -449,7 +456,9 @@ data() {
         searchExcludeTags: '', // 排除的标签，逗号分隔
         isSearchMode: false,
         currentPage: 1,
-        pageSize: 15,
+        pageSize: 60,
+        showTagCatalog: false,
+        tagOptions: [],
         selectedFiles: [],
         sortOption: 'dateDesc',
         isUploading: false,
@@ -485,6 +494,7 @@ data() {
             accessStatus: [], // 访问状态: 'normal'(正常), 'blocked'(已屏蔽)
             listType: [],     // 黑白名单: 'White', 'Block', 'None'
             label: [],         // 审查结果: 'normal', 'teen', 'adult'
+            tagGroup1: [], tagGroup2: [],
             fileType: [],      // 文件类型: 'image', 'video', 'audio', 'other'
             channel: [],       // 渠道类型: 'TelegramNew', 'CloudflareR2', 'S3', 'Discord', 'HuggingFace', 'WebDAV', 'External'
             channelName: []    // 渠道名称: 动态获取
@@ -500,6 +510,7 @@ data() {
 },
 components: {
     DashboardTabs,
+    TagCatalogDialog,
     TagManagementDialog,
     BatchTagDialog,
     SkeletonLoader,
@@ -916,6 +927,7 @@ methods: {
         this.filters = {
             listType: [],
             label: [],
+            tagGroup1: [], tagGroup2: [],
             fileType: [],
             channel: [],
             channelName: []
@@ -1614,12 +1626,10 @@ methods: {
         const fileLink = process.env.NODE_ENV === 'production' ? `/file/${filename}?from=admin` : `/api/file/${filename}?from=admin`;
         return fileLink;
     },
-    handlePageChange(page) {
-        this.currentPage = page;
-        // 到最后一页时，加载更多数据
-        if (this.currentPage === Math.ceil(this.tableData.length / this.pageSize)) {
-            this.loadMoreData();
-        }
+    async handlePageChange(page) {
+        if (this.loading || page < 1 || page > this.realTotalPages) return;
+        await this.loadMoreDataUntilPage(page);
+        document.querySelector('.main-container')?.scrollIntoView({ behavior: 'smooth' });
     },
     // 跳转到指定页码
     handleJumpPage() {
@@ -1843,6 +1853,7 @@ methods: {
     },
     // 刷新文件列表
     async refreshFileList() {
+        this.loadTagOptions();
         this.refreshLoading = true;
         this.loading = true;
         try {
@@ -1910,6 +1921,20 @@ methods: {
             this.$message.success(this.$t('fileDetail.renameSuccess'));
         } catch (error) { this.$message.error(error.message || this.$t('fileDetail.renameFailed')); }
         finally { this.renaming = false; }
+    },
+    async loadTagOptions() {
+        try {
+            const response = await fetchWithAuth('/api/manage/tags/catalog');
+            if (response.ok) this.tagOptions = (await response.json()).tags.map(t => t.name);
+        } catch { /* Keep existing options on transient failures. */ }
+    },
+    async handleCatalogChanged(change) {
+        for (const key of ['tagGroup1', 'tagGroup2']) {
+            this.filters[key] = [...new Set((this.filters[key] || []).flatMap(tag => tag === change.name ? (change.newName ? [change.newName] : []) : [tag]))];
+        }
+        await this.loadTagOptions();
+        this.currentPage = 1;
+        await this.refreshFileList();
     },
     // Tag management methods
     handleTagManagement(fileId) {

@@ -184,6 +184,9 @@ class FileManager {
     // 构建筛选参数URL
     buildFilterParams(filters) {
         let params = '';
+        for (const key of ['tagGroup1', 'tagGroup2']) {
+            if (filters[key]?.length) params += '&' + key + '=' + encodeURIComponent(filters[key].join(','));
+        }
         // 访问状态筛选（综合判断）
         if (filters.accessStatus && filters.accessStatus.length > 0) {
             params += `&accessStatus=${encodeURIComponent(filters.accessStatus.join(','))}`;
@@ -224,6 +227,7 @@ class FileManager {
             const response = await fetchWithAuth(url, {
                 method: 'GET',
             });
+            if (!response.ok) throw new Error('File list unavailable');
             const newFileList = await response.json();
             if (!newFileList.isIndexedResponse) {
                 ElMessage.warning(i18n.global.t('dashboard.indexingWarning'));
@@ -257,6 +261,7 @@ class FileManager {
                 method: 'GET',
             });
            
+            if (!response.ok) throw new Error('File list unavailable');
             const moreFiles = await response.json();
             fileList.files.push(...moreFiles.files);
             return this.updateFileListCache(fileList).cacheUpdated;
