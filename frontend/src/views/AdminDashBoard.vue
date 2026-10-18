@@ -123,7 +123,7 @@
             <div class="batch-toolbar" role="toolbar" :aria-label="$t('dashboard.batchActions')">
                 <span class="selection-count">{{ $t('dashboard.selectedCount', { count: selectedFiles.length }) }}</span>
                 <el-tooltip v-for="action in batchHeaderActions" :key="action.command" :content="$t('dashboard.' + action.command)" placement="top">
-                    <span><button class="batch-header-button" :class="{ danger: action.command === 'delete' }" :aria-label="$t('dashboard.' + action.command)" :disabled="loading || !selectedFiles.length || (action.command === 'download' && !selectedFiles.some(file => !file.isFolder))" @click="handleBatchAction(action.command)"><font-awesome-icon :icon="action.icon" /></button></span>
+                    <span><button class="batch-header-button" :class="{ danger: action.command === 'delete' }" :aria-label="$t('dashboard.' + action.command)" :disabled="loading || !selectedFiles.length || (['download', 'telegramSend'].includes(action.command) && !selectedFiles.some(file => !file.isFolder))" @click="handleBatchAction(action.command)"><font-awesome-icon :icon="action.icon" /></button></span>
                 </el-tooltip>
             </div>
                 <span class="stats-badge" :title="$t('dashboard.totalFiles', { count: $data.Number })">
@@ -369,6 +369,7 @@
             </div>
         </el-dialog>
 
+        <BatchTelegramDialog v-model="showTelegramDialog" :files="telegramSelection" />
         <TagCatalogDialog v-model="showTagCatalog" @changed="handleCatalogChanged" />
         <!-- Tag Management Dialog -->
         <TagManagementDialog
@@ -411,6 +412,7 @@
 <script>
 import { mapGetters } from 'vuex';
 import JSZip from 'jszip';
+import BatchTelegramDialog from '@/components/dashboard/BatchTelegramDialog.vue';
 import DashboardTabs from '@/components/DashboardTabs.vue';
 import TagCatalogDialog from '@/components/dashboard/TagCatalogDialog.vue';
 import TagManagementDialog from '@/components/dashboard/TagManagementDialog.vue';
@@ -455,7 +457,9 @@ data() {
         showTagCatalog: false,
         tagOptions: [],
         selectedFiles: [],
-        batchHeaderActions: [{ command: 'download', icon: 'download' }, { command: 'move', icon: 'file-export' }, { command: 'delete', icon: 'trash-alt' }],
+        showTelegramDialog: false,
+        telegramSelection: [],
+        batchHeaderActions: [{ command: 'download', icon: 'download' }, { command: 'move', icon: 'file-export' }, { command: 'telegramSend', icon: 'paper-plane' }, { command: 'delete', icon: 'trash-alt' }],
         sortOption: 'dateDesc',
         isUploading: false,
         showdetailDialog: false,
@@ -505,6 +509,7 @@ data() {
     }
 },
 components: {
+    BatchTelegramDialog,
     DashboardTabs,
     TagCatalogDialog,
     TagManagementDialog,
@@ -1356,7 +1361,10 @@ methods: {
     },
     handleBatchAction(command) {
         if (!this.selectedFiles.length || this.loading) return;
-        if (command === 'copy') {
+        if (command === 'telegramSend') {
+            this.telegramSelection = this.selectedFiles.map(file => ({ ...file, metadata: { ...file.metadata } }));
+            this.showTelegramDialog = true;
+        } else if (command === 'copy') {
             this.handleBatchCopy();
         } else if (command === 'delete') {
             this.handleBatchDelete();
