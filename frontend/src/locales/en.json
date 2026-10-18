@@ -233,7 +233,8 @@
     "resetColumns": "Reset columns",
     "nextPage": "Next page",
     "batchActions": "Batch actions",
-    "selectedCount": "{count} selected"
+    "selectedCount": "{count} selected",
+    "telegramSend": "Send to Telegram"
   },
   "dashboardTabs": {
     "fileManagement": "File Management",
@@ -842,5 +843,40 @@
     "saved": "Saved",
     "confirmDelete": "Delete unused tag “{name}”?",
     "confirmRename": "Rename “{name}” on {count} files to (existing tags will merge):"
+  },
+  "tgSend": {
+    "title": "Send files to Telegram",
+    "hint": "The recipient must first open this bot and press Start. Use their numeric user ID, not {'@'}username.",
+    "bot": "Sending bot (Telegram channel)",
+    "recipient": "Recipient user ID",
+    "recipientPlaceholder": "Select or type a numeric ID and press Enter",
+    "fileHint": "Send {count} files; skip {skipped} folders. Files already stored by this bot are reused; others are sent as original files up to 20 MB each. External links are unsupported.",
+    "result": "Result",
+    "stop": "Stop remaining files",
+    "confirm": "Send {count} files to {recipient}",
+    "summary": "Telegram confirmed {success} / {total} files sent.",
+    "loadFailed": "Could not load bot settings. Please retry.",
+    "status": {
+      "queued": "Queued",
+      "sending": "Sending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "unknown": "Unconfirmed",
+      "cancelled": "Not sent"
+    },
+    "errors": {
+      "invalid_request": "Invalid request",
+      "unauthorized": "Please sign in as administrator again",
+      "bot_not_configured": "Configure and enable a Telegram bot in upload settings first",
+      "file_not_found": "File not found",
+      "file_too_large": "File exceeds the 20 MB re-upload limit",
+      "file_unavailable": "Original file unavailable (access restriction or redirect)",
+      "external_file_unsupported": "External links are not supported",
+      "rate_limited": "Telegram rate limit: wait at least {seconds} seconds",
+      "recipient_unavailable": "User has not started the bot, blocked it, or the ID is incorrect",
+      "bot_unavailable": "Invalid bot credentials",
+      "telegram_rejected": "Telegram rejected this file; check media type and bot settings",
+      "delivery_unknown": "Unconfirmed: check Telegram before retrying to avoid duplicates. Remaining files stopped."
+    }
   }
 }
