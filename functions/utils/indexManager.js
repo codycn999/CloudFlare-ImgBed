@@ -499,6 +499,8 @@ export async function readIndex(context, options = {}) {
             label = [],
             fileType = [],
             channelName = [],
+            tagGroup1 = [],
+            tagGroup2 = [],
             includeTags = [],
             excludeTags = [],
             countOnly = false,
@@ -648,6 +650,10 @@ export async function readIndex(context, options = {}) {
             });
         }
 
+        for (const group of [tagGroup1, tagGroup2]) {
+            if (group.length) filteredFiles = filteredFiles.filter(file => group.some(tag =>
+                (file.metadata.Tags || []).some(value => value.toLowerCase() === tag.toLowerCase())));
+        }
         // 标签过滤（独立于搜索关键字）
         if (includeTags.length > 0 || excludeTags.length > 0) {
             filteredFiles = filteredFiles.filter(file => {

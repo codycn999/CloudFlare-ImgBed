@@ -1,4 +1,4 @@
-import { catalogEntries } from '../../../utils/organizationCatalog.js';
+import { tagCatalog } from '../../../utils/tagCatalog.js';
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { readIndex } from "../../../utils/indexManager.js";
 import { filterTagsByPrefix } from "../../../utils/tagHelpers.js";
@@ -41,38 +41,7 @@ export async function onRequest(context) {
             });
         }
 
-        // Read from index (only first 1000 files)
-        const result = await readIndex(context, {
-            start: 0,
-            count: 1000,
-            includeSubdirFiles: true
-        });
-
-        const definedTags = (await catalogEntries(getDatabase(context.env), 'tag')).map(tag => tag.name);
-        if (!result.success && !definedTags.length) {
-            return new Response(JSON.stringify({
-                error: 'Failed to read index',
-                message: 'Index not available'
-            }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        // Extract unique tags from files
-        const allTags = new Set(definedTags);
-        for (const file of result.files || []) {
-            if (file.metadata && Array.isArray(file.metadata.Tags)) {
-                file.metadata.Tags.forEach(tag => {
-                    if (tag && typeof tag === 'string') {
-                        allTags.add(tag.toLowerCase().trim());
-                    }
-                });
-            }
-        }
-
-        // Convert to array and sort
-        const tagsArray = Array.from(allTags).sort();
+        const tagsArray = (await tagCatalog(getDatabase(context.env))).map(tag => tag.name);
 
         // Filter by prefix
         const filteredTags = prefix
@@ -89,7 +58,7 @@ export async function onRequest(context) {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, max-age=60' // Cache for 1 minute
+                'Cache-Control': 'no-store'
             }
         });
 

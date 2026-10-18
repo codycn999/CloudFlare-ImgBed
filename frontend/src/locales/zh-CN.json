@@ -230,7 +230,8 @@
     "invalidQuickName": "请输入有效文件名（最多 180 字节），不能包含路径、特殊字符或首尾空格。",
     "visibleColumns": "显示字段",
     "requiredColumns": "文件名、勾选框和操作栏始终显示。",
-    "resetColumns": "恢复默认字段"
+    "resetColumns": "恢复默认字段",
+    "nextPage": "下一页"
   },
   "dashboardTabs": {
     "fileManagement": "文件管理",
@@ -310,7 +311,10 @@
     "channelType": "渠道类型",
     "externalLink": "外链",
     "channelName": "渠道名称",
-    "clearFilters": "清除筛选"
+    "clearFilters": "清除筛选",
+    "tagGroup1": "标签组 1（任选）",
+    "tagGroup2": "标签组 2（任选）",
+    "groupHint": "组内满足任一项；两组标签与文件类型须同时满足。"
   },
   "moveFile": {
     "title": "移动文件",
@@ -818,5 +822,20 @@
     "helpText": "您可以尝试：",
     "uploadImage": "图片上传",
     "refreshPage": "刷新页面"
+  },
+  "tagCatalog": {
+    "title": "标签库管理",
+    "hint": "添加未来要用的标签；删除未使用标签；改名会更新全库相关文件，目标名称已存在时合并。",
+    "add": "添加",
+    "usage": "文件数",
+    "actions": "操作",
+    "rename": "统一改名",
+    "delete": "删除",
+    "progress": "正在处理，已更新 {count} 个文件，请保持窗口打开。",
+    "failed": "操作失败，请刷新后重试。",
+    "retry": "操作未完成，部分文件可能已更新。请重新执行相同改名以继续；标签仅支持中英文、数字、下划线和连字符，最多 100 字符。",
+    "saved": "已保存",
+    "confirmDelete": "删除未使用的标签“{name}”？",
+    "confirmRename": "将“{name}”在 {count} 个文件中的标签统一改为（已有名称将合并）："
   }
 }
