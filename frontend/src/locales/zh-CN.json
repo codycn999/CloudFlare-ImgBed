@@ -231,13 +231,16 @@
     "visibleColumns": "显示字段",
     "requiredColumns": "文件名、勾选框和操作栏始终显示。",
     "resetColumns": "恢复默认字段",
-    "nextPage": "下一页"
+    "nextPage": "下一页",
+    "batchActions": "批量操作",
+    "selectedCount": "已选 {count} 项"
   },
   "dashboardTabs": {
     "fileManagement": "文件管理",
     "userManagement": "用户管理",
     "systemSettings": "系统设置",
-    "fileUpload": "文件上传"
+    "fileUpload": "文件上传",
+    "navigation": "页面导航"
   },
   "fileDetail": {
     "title": "文件详情",
@@ -689,7 +692,9 @@
     "copyFullToken": "复制完整密钥",
     "copyAdminRequired": "请登录管理员账号后复制密钥。",
     "copyTokenMissing": "密钥已删除或不可用，请刷新列表。",
-    "copyTokenFailed": "获取密钥失败，请稍后重试。"
+    "copyTokenFailed": "获取密钥失败，请稍后重试。",
+    "expirationEditHint": "修改数值或单位后，从本次更新时重新计算有效期；未修改则保持原到期时间。",
+    "legacyExpirationHint": "旧密钥未保存原始数值和单位，当前显示剩余时间。未修改有效期时，将保留原到期时间。"
   },
   "sysPage": {
     "settingsSaved": "设置已保存",

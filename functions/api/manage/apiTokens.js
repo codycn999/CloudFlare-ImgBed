@@ -25,6 +25,7 @@ export async function onRequest(context) {
     // POST - 创建新Token
     if (method === 'POST') {
         const body = await request.json()
+        if (!body || !validExpiration(body)) return Response.json({ error: 'Invalid expiration' }, { status: 400 });
         const { name, permissions, owner, expiresAt = null, autoDelete = false } = body
 
         if (!name || !permissions || !owner) {
@@ -36,7 +37,7 @@ export async function onRequest(context) {
             })
         }
 
-        const token = await createApiToken(db, name, permissions, owner, expiresAt, autoDelete)
+        const token = await createApiToken(db, name, permissions, owner, expiresAt, autoDelete, 'user', body)
         return new Response(JSON.stringify(token), {
             headers: {
                 'content-type': 'application/json',
@@ -68,7 +69,8 @@ export async function onRequest(context) {
     // PUT - 更新Token权限
     if (method === 'PUT') {
         const body = await request.json()
-        const { tokenId, permissions, expiresAt = null, autoDelete = false } = body
+        if (!body || !validExpiration(body)) return Response.json({ error: 'Invalid expiration' }, { status: 400 });
+        const { tokenId, permissions } = body
 
         if (!tokenId || !permissions) {
             return new Response(JSON.stringify({ error: '缺少必要参数' }), {
@@ -79,7 +81,8 @@ export async function onRequest(context) {
             })
         }
 
-        const result = await updateApiToken(db, tokenId, permissions, expiresAt, autoDelete)
+        const result = await updateApiToken(db, tokenId, permissions, body)
+        if (result.error) return Response.json(result, { status: 404 });
         return new Response(JSON.stringify(result), {
             headers: {
                 'content-type': 'application/json',
@@ -88,6 +91,16 @@ export async function onRequest(context) {
     }
 
     return new Response('Method not allowed', { status: 405 })
+}
+
+function validExpiration(body) {
+    if (body.expiresAt !== undefined && body.expiresAt !== null &&
+        (typeof body.expiresAt !== 'string' || !Number.isFinite(Date.parse(body.expiresAt)))) return false;
+    const hasPeriod = body.expirationValue !== undefined || body.expirationUnit !== undefined;
+    if (!hasPeriod) return true;
+    if (body.expiresAt === null) return body.expirationValue == null && body.expirationUnit == null;
+    return typeof body.expiresAt === 'string' && Number.isSafeInteger(body.expirationValue) && body.expirationValue > 0 &&
+        ['s','m','h','d','M','Y'].includes(body.expirationUnit);
 }
 
 // 获取所有API Token
@@ -110,6 +123,8 @@ async function getApiTokens(db) {
                 createdAt: token.createdAt,
                 updatedAt: token.updatedAt,
                 token: token.token,
+                expirationValue: token.expirationValue ?? null,
+                expirationUnit: token.expirationUnit ?? null,
                 expiresAt: token.expiresAt ?? null,
                 autoDelete: token.autoDelete ?? false
             }
@@ -135,6 +150,8 @@ async function getApiTokens(db) {
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
         token: t.token.substr(0, 15) + '...', // 只显示前15位
+        expirationValue: t.expirationValue ?? null,
+        expirationUnit: t.expirationUnit ?? null,
         expiresAt: t.expiresAt,
         autoDelete: t.autoDelete
     }))
@@ -143,7 +160,7 @@ async function getApiTokens(db) {
 }
 
 // 创建新的API Token
-export async function createApiToken(db, name, permissions, owner, expiresAt = null, autoDelete = false, type = 'user') {
+export async function createApiToken(db, name, permissions, owner, expiresAt = null, autoDelete = false, type = 'user', period = {}) {
     const settingsStr = await db.get('manage@sysConfig@security')
     const settings = settingsStr ? JSON.parse(settingsStr) : {}
     
@@ -164,6 +181,8 @@ export async function createApiToken(db, name, permissions, owner, expiresAt = n
         type,
         createdAt: now,
         updatedAt: now,
+        expirationValue: expiresAt ? period.expirationValue ?? null : null,
+        expirationUnit: expiresAt ? period.expirationUnit ?? null : null,
         expiresAt: expiresAt ?? null,
         autoDelete: autoDelete === true
     }
@@ -181,6 +200,8 @@ export async function createApiToken(db, name, permissions, owner, expiresAt = n
         permissions,
         createdAt: now,
         updatedAt: now,
+        expirationValue: tokenData.expirationValue,
+        expirationUnit: tokenData.expirationUnit,
         expiresAt: tokenData.expiresAt,
         autoDelete: tokenData.autoDelete
     }
@@ -204,7 +225,7 @@ export async function deleteApiToken(db, tokenId) {
 }
 
 // 更新API Token
-async function updateApiToken(db, tokenId, permissions, expiresAt = null, autoDelete = false) {
+async function updateApiToken(db, tokenId, permissions, body) {
     const settingsStr = await db.get('manage@sysConfig@security')
     const settings = settingsStr ? JSON.parse(settingsStr) : {}
     
@@ -214,8 +235,17 @@ async function updateApiToken(db, tokenId, permissions, expiresAt = null, autoDe
     
     settings.apiTokens.tokens[tokenId].permissions = permissions
     settings.apiTokens.tokens[tokenId].updatedAt = new Date().toISOString()
-    settings.apiTokens.tokens[tokenId].expiresAt = expiresAt ?? null
-    settings.apiTokens.tokens[tokenId].autoDelete = autoDelete === true
+    const token = settings.apiTokens.tokens[tokenId];
+    if (body.expiresAt !== undefined) {
+        const changed = token.expiresAt !== body.expiresAt;
+        token.expiresAt = body.expiresAt;
+        if (body.expiresAt === null || changed || body.expirationValue !== undefined) {
+            token.expirationValue = body.expiresAt === null ? null : body.expirationValue ?? null;
+            token.expirationUnit = body.expiresAt === null ? null : body.expirationUnit ?? null;
+        }
+    }
+    if (body.autoDelete !== undefined) token.autoDelete = body.autoDelete === true;
+    if (token.expiresAt == null) token.autoDelete = false;
     
     // 保存到数据库
     await db.put('manage@sysConfig@security', JSON.stringify(settings))
@@ -223,6 +253,9 @@ async function updateApiToken(db, tokenId, permissions, expiresAt = null, autoDe
     return {
         success: true,
         message: 'Token 已更新',
+        settings: { permissions: token.permissions, updatedAt: token.updatedAt,
+            expiresAt: token.expiresAt ?? null, expirationValue: token.expirationValue ?? null,
+            expirationUnit: token.expirationUnit ?? null, autoDelete: token.autoDelete === true },
         tokenId
     }
 }

@@ -13,6 +13,36 @@ const SIMPLE_UNIT_MS = {
   d: 24 * 60 * 60 * 1000,
 };
 
+// Keep the configured duration separate from the absolute deadline.
+export function expirationEditor(token, now = new Date()) {
+  const expiresAt = token.expiresAt ?? null;
+  let expirationValue = token.expirationValue;
+  let expirationUnit = token.expirationUnit;
+  const saved = Number.isSafeInteger(expirationValue) && expirationValue > 0 && ['s','m','h','d','M','Y'].includes(expirationUnit);
+  if (!saved) {
+    expirationValue = 1; expirationUnit = 'd';
+    if (expiresAt && Number.isFinite(Date.parse(expiresAt))) {
+      // Legacy records have only a deadline: show remaining time, but never
+      // rewrite that deadline unless the user actually changes the duration.
+      const seconds = Math.max(1, Math.ceil((Date.parse(expiresAt) - now.getTime()) / 1000));
+      expirationUnit = 's'; expirationValue = seconds;
+      for (const [unit, divisor] of [['d',86400],['h',3600],['m',60]]) {
+        if (seconds % divisor === 0) { expirationValue = seconds / divisor; expirationUnit = unit; break; }
+      }
+    }
+  }
+  return { neverExpire: expiresAt === null, expirationValue, expirationUnit,
+    originalExpiresAt: expiresAt, originalExpirationValue: expirationValue,
+    originalExpirationUnit: expirationUnit, legacyExpiration: !saved && expiresAt !== null };
+}
+
+export function expirationUpdate(editor, now = new Date()) {
+  if (editor.neverExpire) return { expiresAt: null, expirationValue: null, expirationUnit: null, autoDelete: false };
+  const unchanged = editor.originalExpiresAt != null && editor.expirationValue === editor.originalExpirationValue && editor.expirationUnit === editor.originalExpirationUnit;
+  const period = unchanged && editor.legacyExpiration ? {} : { expirationValue: editor.expirationValue, expirationUnit: editor.expirationUnit };
+  return { expiresAt: unchanged ? editor.originalExpiresAt : computeExpiresAt(now, editor.expirationValue, editor.expirationUnit), ...period, autoDelete: editor.autoDelete === true };
+}
+
 /**
  * 根据基准时间、数值和时间单位计算过期时间
  * @param {Date|string} baseTime - 基准时间（Date 对象或 ISO 8601 字符串）

@@ -56,18 +56,6 @@
                                 <font-awesome-icon icon="copy" class="batch-action-item-icon"></font-awesome-icon>
                                 {{ $t('dashboard.copy') }}
                             </el-dropdown-item>
-                            <el-dropdown-item command="delete">
-                                <font-awesome-icon icon="trash-alt" class="batch-action-item-icon"></font-awesome-icon>
-                                {{ $t('dashboard.delete') }}
-                            </el-dropdown-item>
-                            <el-dropdown-item command="download">
-                                <font-awesome-icon icon="download" class="batch-action-item-icon"></font-awesome-icon>
-                                {{ $t('dashboard.download') }}
-                            </el-dropdown-item>
-                            <el-dropdown-item command="move">
-                                <font-awesome-icon icon="file-export" class="batch-action-item-icon"></font-awesome-icon>
-                                {{ $t('dashboard.move') }}
-                            </el-dropdown-item>
                             <el-dropdown-item command="tagManagement">
                                 <font-awesome-icon icon="tags" class="batch-action-item-icon"></font-awesome-icon>
                                 {{ $t('dashboard.tagManagement') }}
@@ -137,6 +125,12 @@
                 </span>
             </div>
             
+            <div class="batch-toolbar" role="toolbar" :aria-label="$t('dashboard.batchActions')">
+                <span class="selection-count">{{ $t('dashboard.selectedCount', { count: selectedFiles.length }) }}</span>
+                <el-tooltip v-for="action in batchHeaderActions" :key="action.command" :content="$t('dashboard.' + action.command)" placement="top">
+                    <span><button class="batch-header-button" :class="{ danger: action.command === 'delete' }" :aria-label="$t('dashboard.' + action.command)" :disabled="loading || !selectedFiles.length || (action.command === 'download' && !selectedFiles.some(file => !file.isFolder))" @click="handleBatchAction(action.command)"><font-awesome-icon :icon="action.icon" /></button></span>
+                </el-tooltip>
+            </div>
             <!-- 卡片视图 -->
             <div v-if="viewMode === 'card'" class="content" ref="cardContainerRef">
                 <!-- 加载骨架屏 -->
@@ -460,6 +454,7 @@ data() {
         showTagCatalog: false,
         tagOptions: [],
         selectedFiles: [],
+        batchHeaderActions: [{ command: 'download', icon: 'download' }, { command: 'move', icon: 'file-export' }, { command: 'delete', icon: 'trash-alt' }],
         sortOption: 'dateDesc',
         isUploading: false,
         showdetailDialog: false,
@@ -1359,6 +1354,7 @@ methods: {
         }
     },
     handleBatchAction(command) {
+        if (!this.selectedFiles.length || this.loading) return;
         if (command === 'copy') {
             this.handleBatchCopy();
         } else if (command === 'delete') {
@@ -2116,6 +2112,12 @@ mounted() {
 </script>
 
 <style scoped>
+.batch-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 0; margin-bottom: 8px; }
+.selection-count { color: var(--admin-container-color); font-size: 13px; }
+.batch-header-button { border: 0; background: transparent; color: var(--admin-container-color); cursor: pointer; padding: 8px; font-size: 18px; border-radius: 8px; }
+.batch-header-button:hover:not(:disabled) { color: var(--admin-purple); background: var(--el-fill-color-light); }
+.batch-header-button.danger:hover:not(:disabled) { color: var(--el-color-danger); }
+.batch-header-button:disabled { opacity: .35; cursor: not-allowed; }
 .container {
     background: var(--admin-container-bg-color);
     min-height: 100vh;
