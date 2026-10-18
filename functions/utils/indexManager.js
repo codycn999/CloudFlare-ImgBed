@@ -611,7 +611,9 @@ export async function readIndex(context, options = {}) {
         // 'other' 匹配不属于以上三类的文件
         if (fileTypeArr.length > 0) {
             filteredFiles = filteredFiles.filter(file => {
-                const mimeType = file.metadata.FileType || '';
+                const mimeType = (file.metadata.FileType || '').split(';')[0].trim().toLowerCase();
+                const isPdf = mimeType === 'application/pdf' ||
+                    ((!mimeType || mimeType === 'application/octet-stream') && /\.pdf$/i.test(file.metadata.FileName || file.id));
                 return fileTypeArr.some(ft => {
                     if (ft === 'image') {
                         return mimeType.startsWith('image/');
@@ -619,10 +621,12 @@ export async function readIndex(context, options = {}) {
                         return mimeType.startsWith('video/');
                     } else if (ft === 'audio') {
                         return mimeType.startsWith('audio/');
+                    } else if (ft === 'pdf') {
+                        return isPdf;
                     } else if (ft === 'other') {
                         return !mimeType.startsWith('image/') && 
                                !mimeType.startsWith('video/') && 
-                               !mimeType.startsWith('audio/');
+                               !mimeType.startsWith('audio/') && !isPdf;
                     }
                     return false;
                 });

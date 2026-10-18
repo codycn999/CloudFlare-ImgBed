@@ -178,6 +178,7 @@ export default {
                 { label: this.$t('filter.image'), value: 'image' },
                 { label: this.$t('filter.video'), value: 'video' },
                 { label: this.$t('filter.audio'), value: 'audio' },
+                { label: 'PDF', value: 'pdf' },
                 { label: this.$t('filter.other'), value: 'other' }
             ];
         },
