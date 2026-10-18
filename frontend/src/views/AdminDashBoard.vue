@@ -87,6 +87,17 @@
                 <el-tooltip :disabled="disableTooltip" :content="viewMode === 'card' ? $t('dashboard.listView') : $t('dashboard.cardView')" placement="bottom">
                     <font-awesome-icon :icon="viewMode === 'card' ? 'list' : 'th-large'" class="header-icon" @click="toggleViewMode"></font-awesome-icon>
                 </el-tooltip>
+                <el-popover v-if="viewMode === 'list'" placement="bottom-end" trigger="click" :width="230">
+                    <template #reference>
+                        <span><el-tooltip :content="$t('dashboard.visibleColumns')" placement="bottom"><button class="column-settings-btn" :aria-label="$t('dashboard.visibleColumns')"><font-awesome-icon icon="cog" class="header-icon"/></button></el-tooltip></span>
+                    </template>
+                    <strong>{{ $t('dashboard.visibleColumns') }}</strong>
+                    <p>{{ $t('dashboard.requiredColumns') }}</p>
+                    <el-checkbox-group v-model="visibleListColumns" class="column-options">
+                        <el-checkbox v-for="column in listColumnOptions" :key="column.key" :label="column.key">{{ $t('dashboard.' + column.label) }}</el-checkbox>
+                    </el-checkbox-group>
+                    <el-button link type="primary" @click="resetListColumns">{{ $t('dashboard.resetColumns') }}</el-button>
+                </el-popover>
                 <el-tooltip :disabled="disableTooltip" :content="$t('dashboard.logout')" placement="bottom">
                     <font-awesome-icon icon="sign-out-alt" class="header-icon" @click="handleLogout"></font-awesome-icon>
                 </el-tooltip>
@@ -158,6 +169,8 @@
                         :previewSrcList="item.previewSrcList"
                         :disableTooltip="disableTooltip"
                         @detail="openDetailDialog(index, item.name)"
+                        @tags="handleTagManagement(item.name)"
+                        @rename="openQuickRename(item)"
                         @copy="handleCopy(index, item.name)"
                         @move="handleMove(index, item.name)"
                         @delete="handleDelete(index, item.name)"
@@ -169,7 +182,7 @@
                 </template>
             </div>
             <!-- 列表视图 -->
-            <div v-else class="list-view" ref="listContainerRef">
+            <div v-else class="list-view" :style="listLayout" ref="listContainerRef">
                 <div class="list-header">
                     <div class="list-col list-col-checkbox">
                         <span class="custom-checkbox" :class="{ 'checked': isSelectAll, 'indeterminate': isIndeterminate }" @click="handleSelectAllPage(!isSelectAll)">
@@ -177,14 +190,14 @@
                             <font-awesome-icon v-else-if="isIndeterminate" icon="minus" class="check-icon"/>
                         </span>
                     </div>
-                    <div class="list-col list-col-preview">{{ $t('dashboard.preview') }}</div>
+                    <div v-if="visibleListColumns.includes('preview')" class="list-col list-col-preview">{{ $t('dashboard.preview') }}</div>
                     <div class="list-col list-col-name">{{ $t('dashboard.fileName') }}</div>
-                    <div class="list-col list-col-tags">{{ $t('dashboard.tags') }}</div>
-                    <div class="list-col list-col-channel">{{ $t('dashboard.channelType') }}</div>
-                    <div class="list-col list-col-channel-name">{{ $t('dashboard.channelNameCol') }}</div>
-                    <div class="list-col list-col-address">{{ $t('dashboard.uploadAddress') }}</div>
-                    <div class="list-col list-col-size">{{ $t('dashboard.fileSize') }}</div>
-                    <div class="list-col list-col-date">{{ $t('dashboard.uploadTime') }}</div>
+                    <div v-if="visibleListColumns.includes('tags')" class="list-col list-col-tags">{{ $t('dashboard.tags') }}</div>
+                    <div v-if="visibleListColumns.includes('channel')" class="list-col list-col-channel">{{ $t('dashboard.channelType') }}</div>
+                    <div v-if="visibleListColumns.includes('channel-name')" class="list-col list-col-channel-name">{{ $t('dashboard.channelNameCol') }}</div>
+                    <div v-if="visibleListColumns.includes('address')" class="list-col list-col-address">{{ $t('dashboard.uploadAddress') }}</div>
+                    <div v-if="visibleListColumns.includes('size')" class="list-col list-col-size">{{ $t('dashboard.fileSize') }}</div>
+                    <div v-if="visibleListColumns.includes('date')" class="list-col list-col-date">{{ $t('dashboard.uploadTime') }}</div>
                     <div class="list-col list-col-actions">{{ $t('dashboard.actions') }}</div>
                 </div>
                 <!-- 列表骨架屏 -->
@@ -198,6 +211,7 @@
                 <!-- 实际数据 -->
                 <template v-else>
                     <FileListItem
+                        :visibleColumns="visibleListColumns"
                         v-for="(item, index) in paginatedTableData"
                         :key="index"
                         :item="item"
@@ -205,6 +219,8 @@
                         :fileLink="getFileLink(item.name)"
                         @enter="enterFolder(item.name)"
                         @detail="openDetailDialog(index, item.name)"
+                        @tags="handleTagManagement(item.name)"
+                        @rename="openQuickRename(item)"
                         @copy="handleCopy(index, item.name)"
                         @folderCopy="handleFolderCopy(item.name)"
                         @move="handleMove(index, item.name)"
@@ -273,6 +289,14 @@
             </el-main>
         </el-container>
         <!-- 文件详情弹窗 -->
+        <el-dialog v-model="showRenameDialog" :title="$t('dashboard.quickRename')" width="min(460px, 90vw)" :close-on-click-modal="!renaming" :close-on-press-escape="!renaming" :show-close="!renaming">
+            <el-input v-model="renameValue" :aria-label="$t('dashboard.fileName')" :disabled="renaming" @keyup.enter="saveQuickRename" autofocus />
+            <p>{{ $t('dashboard.quickRenameHint') }}</p>
+            <template #footer>
+                <el-button :disabled="renaming" @click="showRenameDialog = false">{{ $t('fileDetail.renameCancel') }}</el-button>
+                <el-button type="primary" :loading="renaming" @click="saveQuickRename">{{ $t('fileDetail.renameConfirm') }}</el-button>
+            </template>
+        </el-dialog>
         <FileDetailDialog
             v-model="showdetailDialog"
             :file="detailFile"
@@ -404,6 +428,7 @@ import fetchWithAuth from '@/utils/fetchWithAuth';
 import { validateFolderPath } from '@/utils/pathValidator';
 import backgroundManager from '@/mixins/backgroundManager';
 import { ref } from 'vue';
+import { optionalListColumns, defaultListColumns, loadListColumns, listColumnLayout, validOverviewFileName } from '@/utils/overviewHelpers';
 import { useDragSelect } from '@/utils/dashboard/useDragSelect.js';
 
 export default {
@@ -441,6 +466,12 @@ data() {
         showTagDialog: false, // 标签管理对话框
         showBatchTagDialog: false, // 批量标签管理对话框
         currentTagFile: '', // 当前标签管理的文件
+        visibleListColumns: loadListColumns(localStorage),
+        listColumnOptions: optionalListColumns,
+        renameTarget: null,
+        renameValue: '',
+        renaming: false,
+        showRenameDialog: false,
         viewMode: 'card', // 视图模式：card 或 list
         showMobileActionModal: false, // 移动端操作模态框
         mobileActionFile: null, // 当前移动端操作的文件
@@ -507,6 +538,7 @@ setup() {
     };
 },
 computed: {
+    listLayout() { return listColumnLayout(this.visibleListColumns); },
     ...mapGetters(['adminUrlSettings', 'userConfig']),
     filteredTableData() {
         return this.tableData;
@@ -646,6 +678,9 @@ computed: {
     }
 },
 watch: {
+    visibleListColumns: { deep: true, handler(value) {
+        try { localStorage.setItem('dashboardListColumns', JSON.stringify(value)); } catch { /* Storage may be unavailable. */ }
+    } },
     // Sync viewMode data property to the ref used by useDragSelect
     viewMode: {
         handler(newVal) {
@@ -1849,6 +1884,33 @@ methods: {
             this.loading = false;
         }
     },
+    resetListColumns() { this.visibleListColumns = [...defaultListColumns]; },
+    openQuickRename(item) {
+        this.renameTarget = item;
+        this.renameValue = item.metadata?.FileName || item.name.split('/').pop();
+        this.showRenameDialog = true;
+    },
+    async saveQuickRename() {
+        if (this.renaming || !this.renameTarget) return;
+        if (!validOverviewFileName(this.renameValue)) {
+            this.$message.warning(this.$t('dashboard.invalidQuickName'));
+            return;
+        }
+        const oldPath = this.renameTarget.name;
+        this.renaming = true;
+        try {
+            const response = await fetchWithAuth(`/api/manage/rename/${oldPath.split('/').map(encodeURIComponent).join('/')}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newFileName: this.renameValue })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(response.status === 409 ? this.$t('fileDetail.renameConflict') : result.message || this.$t('fileDetail.renameFailed'));
+            this.handleFileRenamed(oldPath, result.newFileId, result.metadata);
+            this.showRenameDialog = false;
+            this.$message.success(this.$t('fileDetail.renameSuccess'));
+        } catch (error) { this.$message.error(error.message || this.$t('fileDetail.renameFailed')); }
+        finally { this.renaming = false; }
+    },
     // Tag management methods
     handleTagManagement(fileId) {
         this.currentTagFile = fileId;
@@ -1911,6 +1973,13 @@ methods: {
             this.$nextTick(() => {
                 this.showdetailDialog = true;
             });
+        }
+        const cached = fileManager.getMutableFileList();
+        const cachedFile = cached.files.find(file => file.name === oldFileId || file.name === newFileId);
+        if (cachedFile) {
+            cachedFile.name = newFileId;
+            cachedFile.metadata = { ...cachedFile.metadata, ...updatedMetadata };
+            fileManager.updateFileListCache(cached);
         }
     },
     // 生成单个文件链接
@@ -2432,14 +2501,15 @@ html.dark .header-content:hover {
 
 .list-header {
     display: grid;
-    grid-template-columns: 50px 60px minmax(180px, 1fr) 130px 100px 110px 130px 80px 100px 120px;
+    grid-template-columns: var(--list-columns);
     padding: 12px 20px;
     background: var(--admin-dashboard-stats-bg);
     font-weight: 600;
     font-size: 13px;
     color: var(--el-text-color-secondary);
     border-bottom: 1px solid var(--el-border-color-lighter);
-    min-width: fit-content;
+    min-width: var(--list-min-width);
+    box-sizing: border-box;
 }
 
 .list-col {
@@ -2483,9 +2553,7 @@ html.dark .header-content:hover {
 
 /* 移动端列表视图 */
 @media (max-width: 768px) {
-    .list-header {
-        display: none;
-    }
+    .list-header { font-size: 12px; }
 }
 
 .pagination-container {
@@ -2824,4 +2892,6 @@ html.dark .header-content:hover {
     border-radius: 2px;
 }
 
+.column-settings-btn { border: 0; background: transparent; padding: 0; cursor: pointer; }
+.column-options { display: flex; flex-direction: column; margin-bottom: 12px; }
 </style>
