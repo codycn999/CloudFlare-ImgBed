@@ -16,4 +16,5 @@ jobs:
       - run: node --test tests/file-identity.test.mjs tests/telegram-webhook.test.mjs
       - run: node --import ./deploy/server/register.mjs --test tests/permanent-link-integration.test.mjs
       - run: node --import ./deploy/server/register.mjs --test tests/unified-names.test.mjs
+      - run: node --import ./deploy/server/register.mjs --test tests/file-details.test.mjs
       - run: npx wrangler pages functions build functions --outdir .wrangler/identity-build

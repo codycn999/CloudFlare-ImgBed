@@ -39,6 +39,13 @@
             <el-tab-pane label="BBCode" name="bbUrl">
                 <el-input v-model="urls.bbUrl" readonly @click="handleUrlClick"></el-input>
             </el-tab-pane>
+            <el-tab-pane :label="$t('fileDetail.fixedId')" name="fixedId">
+                <el-input :model-value="fixedId" readonly :placeholder="identityLoading ? $t('fileDetail.identityLoading') : $t('fileDetail.identityUnavailable')" @click="handleUrlClick" />
+                <el-button v-if="identityError" link type="primary" @click="loadIdentity">{{ $t('fileDetail.identityRetry') }}</el-button>
+            </el-tab-pane>
+            <el-tab-pane v-if="showPermanentLink" :label="$t('fileDetail.permanentLink')" name="permanentLink">
+                <el-input :model-value="permanentLink" readonly @click="handleUrlClick" />
+            </el-tab-pane>
             <el-tab-pane label="TG File ID" v-if="file?.metadata?.TgFileId" name="tgId">
                 <el-input v-model="urls.tgId" readonly @click="handleUrlClick"></el-input>
             </el-tab-pane>
@@ -62,20 +69,13 @@
                     fit="contain" 
                     lazy 
                     class="image-preview"
+                    @load="handleImageLoad"
                 ></el-image>
                 <font-awesome-icon v-else icon="file" class="file-icon-detail"></font-awesome-icon>
             </div>
         </div>
         <!-- 详细信息 -->
         <el-descriptions border :column="descColumn">
-            <el-descriptions-item :label="$t('fileDetail.fixedId')" :span="descColumn">
-                <el-input :model-value="fixedId" readonly :placeholder="identityLoading ? $t('fileDetail.identityLoading') : $t('fileDetail.identityUnavailable')" @click="handleUrlClick" />
-                <small>{{ $t('fileDetail.fixedIdHint') }}</small>
-                <el-button v-if="identityError" link type="primary" @click="loadIdentity">{{ $t('fileDetail.identityRetry') }}</el-button>
-            </el-descriptions-item>
-            <el-descriptions-item :label="$t('fileDetail.permanentLink')" :span="descColumn">
-                <el-input :model-value="permanentLink" readonly @click="handleUrlClick" />
-            </el-descriptions-item>
             <el-descriptions-item :label="$t('fileDetail.filePath')" :span="descColumn">
                 <span style="overflow-wrap: anywhere">{{ file?.name }}</span>
             </el-descriptions-item>
@@ -90,7 +90,7 @@
             <el-descriptions-item :label="$t('fileDetail.fileSizeLabel')">{{ fileSizeDisplay }}</el-descriptions-item>
             <el-descriptions-item :label="$t('fileDetail.imageDimensions')">
                 <div v-if="imageDimensions" style="display: flex; align-items: center; gap: 6px;">
-                    <span>{{ file?.metadata?.Width }} × {{ file?.metadata?.Height }}</span>
+                    <span>{{ imageDimensions.width }} × {{ imageDimensions.height }} px</span>
                     <el-tag size="small" type="info" style="display: inline-flex; align-items: center; justify-content: center;">{{ orientationIcon }}</el-tag>
                 </div>
                 <span v-else style="color: #909399;">{{ $t('fileDetail.noDimensions') }}</span>
@@ -120,6 +120,7 @@
 <script>
 import { ElMessage } from 'element-plus';
 import fetchWithAuth from '@/utils/fetchWithAuth';
+import { validImageDimensions, needsPermanentLinkTab } from '@/utils/fileDetailHelpers';
 
 export default {
     name: 'FileDetailDialog',
@@ -143,7 +144,12 @@ export default {
             }
         },
         'file.name'() {
+            this.measuredDimensions = null;
+            this.dimensionAttemptKey = '';
             if (this.visible) this.loadIdentity();
+        },
+        showPermanentLink(value) {
+            if (!value && this.activeTab === 'permanentLink') this.activeTab = 'originUrl';
         }
     },
     data() {
@@ -152,6 +158,8 @@ export default {
             fixedId: '',
             identityLoading: false,
             identityError: false,
+            measuredDimensions: null,
+            dimensionAttemptKey: '',
             isEditing: false,
             editForm: {
                 FileName: '',
@@ -163,6 +171,9 @@ export default {
     computed: {
         permanentLink() {
             return this.fixedId ? `${window.location.origin}/file/${this.fixedId}` : '';
+        },
+        showPermanentLink() {
+            return needsPermanentLinkTab(this.urls.originUrl, this.permanentLink, window.location.origin);
         },
         visible: {
             get() { return this.modelValue; },
@@ -223,14 +234,11 @@ export default {
             return 'success';
         },
         imageDimensions() {
-            const width = this.file?.metadata?.Width;
-            const height = this.file?.metadata?.Height;
-            if (width && height) return true;
-            return null;
+            return this.measuredDimensions || validImageDimensions(this.file?.metadata?.Width, this.file?.metadata?.Height);
         },
         orientationIcon() {
-            const width = this.file?.metadata?.Width;
-            const height = this.file?.metadata?.Height;
+            const width = this.imageDimensions?.width;
+            const height = this.imageDimensions?.height;
             if (!width || !height) return '';
             const ratio = width / height;
             if (ratio > 1.1) return this.$t('fileDetail.orientationLandscape');
@@ -256,6 +264,35 @@ export default {
         }
     },
     methods: {
+        async handleImageLoad(event) {
+            const image = event?.target;
+            const dimensions = validImageDimensions(image?.naturalWidth, image?.naturalHeight);
+            if (!dimensions || !this.file?.name || !this.isImage) return;
+            // Ignore late load events belonging to the previously selected image.
+            try {
+                if (new URL(image.currentSrc || image.src, window.location.origin).href !==
+                    new URL(this.fileLink, window.location.origin).href) return;
+            } catch { return; }
+            const path = this.file.name;
+            this.measuredDimensions = dimensions;
+            const saved = validImageDimensions(this.file.metadata?.Width, this.file.metadata?.Height);
+            if (saved?.width === dimensions.width && saved?.height === dimensions.height) return;
+            const key = `${path}:${dimensions.width}x${dimensions.height}`;
+            if (this.dimensionAttemptKey === key) return;
+            this.dimensionAttemptKey = key;
+            try {
+                const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+                const response = await fetchWithAuth(`/api/manage/metadata/${encodedPath}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Width: dimensions.width, Height: dimensions.height })
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (this.file?.name === path) this.$emit('metadataUpdated', path, data.metadata);
+            } catch {
+                // Keep the decoded dimensions visible even if backfilling metadata fails.
+            }
+        },
         handleVideoClick(e) {
             const video = e.target;
             if (video.paused) video.play();

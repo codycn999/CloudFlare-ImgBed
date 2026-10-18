@@ -63,7 +63,8 @@ export async function onRequest(context) {
         }
 
         // 验证请求体中包含可更新的字段
-        if (!body || (typeof body.FileName !== 'string' && typeof body.FileType !== 'string')) {
+        const hasDimensions = body && typeof body === 'object' && ('Width' in body || 'Height' in body);
+        if (!body || (typeof body.FileName !== 'string' && typeof body.FileType !== 'string' && !hasDimensions)) {
             return new Response(JSON.stringify({
                 success: false,
                 message: 'At least one of FileName or FileType is required.',
@@ -74,6 +75,14 @@ export async function onRequest(context) {
         }
 
         const db = getDatabase(env);
+
+        if (hasDimensions && (!Number.isSafeInteger(body.Width) || !Number.isSafeInteger(body.Height) ||
+            body.Width <= 0 || body.Height <= 0 || body.Width > 1000000 || body.Height > 1000000)) {
+            return Response.json({ success: false, message: 'Width and Height must be positive integer pixel dimensions.' }, { status: 400 });
+        }
+        if (hasDimensions && (typeof body.FileName === 'string' || typeof body.FileType === 'string')) {
+            return Response.json({ success: false, message: 'Save image dimensions separately from name and type changes.' }, { status: 400 });
+        }
 
         if (typeof body.FileName === 'string') {
             return renameFile({ ...context, request: new Request(request.url, {
@@ -97,6 +106,13 @@ export async function onRequest(context) {
 
         // 合并允许更新的字段到现有 metadata
         const updatedMetadata = { ...fileData.metadata };
+        if (hasDimensions) {
+            const imageType = fileData.metadata.FileType?.startsWith('image/') ||
+                /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(fileData.metadata.FileName || fileId);
+            if (!imageType) return Response.json({ success: false, message: 'Dimensions are only supported for images.' }, { status: 400 });
+            updatedMetadata.Width = body.Width;
+            updatedMetadata.Height = body.Height;
+        }
         if (typeof body.FileName === 'string') {
             updatedMetadata.FileName = body.FileName;
         }
