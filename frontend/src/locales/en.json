@@ -224,7 +224,13 @@
     "nameNormalizationDone": "Names synchronized: {count}; numbered duplicates: {conflicts}.",
     "nameNormalizationFailed": "Name normalization is unfinished and will resume next time.",
     "nameNormalizationSkipped": "{count} files need manual attention.",
-    "retryNameNormalization": "Retry"
+    "retryNameNormalization": "Retry",
+    "quickRename": "Rename",
+    "quickRenameHint": "Change the filename including its extension. Use Move to change folders. Existing links remain valid.",
+    "invalidQuickName": "Enter a valid filename (up to 180 bytes), without paths, special characters or surrounding whitespace.",
+    "visibleColumns": "Visible columns",
+    "requiredColumns": "Filename, selection and actions are always visible.",
+    "resetColumns": "Reset columns"
   },
   "dashboardTabs": {
     "fileManagement": "File Management",

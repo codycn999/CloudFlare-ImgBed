@@ -224,7 +224,13 @@
     "nameNormalizationDone": "历史文件名称已统一：{count} 个；重名补序号 {conflicts} 个。",
     "nameNormalizationFailed": "名称整理暂未完成，下次进入后台会继续。",
     "nameNormalizationSkipped": "有 {count} 个文件需要手动处理。",
-    "retryNameNormalization": "重试整理"
+    "retryNameNormalization": "重试整理",
+    "quickRename": "重命名",
+    "quickRenameHint": "仅修改文件名（含扩展名）；更改文件夹请使用移动。原有引用链接保持有效。",
+    "invalidQuickName": "请输入有效文件名（最多 180 字节），不能包含路径、特殊字符或首尾空格。",
+    "visibleColumns": "显示字段",
+    "requiredColumns": "文件名、勾选框和操作栏始终显示。",
+    "resetColumns": "恢复默认字段"
   },
   "dashboardTabs": {
     "fileManagement": "文件管理",

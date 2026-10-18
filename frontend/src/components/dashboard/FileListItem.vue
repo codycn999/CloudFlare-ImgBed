@@ -12,7 +12,7 @@
             </span>
         </div>
         <!-- 预览 -->
-        <div class="list-col list-col-preview" @click="handlePreviewClick">
+        <div v-if="visibleColumns.includes('preview')" class="list-col list-col-preview" @click="handlePreviewClick">
             <template v-if="isFolder">
                 <font-awesome-icon icon="folder-open" class="list-folder-icon"/>
             </template>
@@ -34,7 +34,7 @@
             </span>
         </div>
         <!-- 标签 -->
-        <div class="list-col list-col-tags">
+        <div v-if="visibleColumns.includes('tags')" class="list-col list-col-tags">
             <template v-if="!isFolder && item.metadata?.Tags && item.metadata.Tags.length > 0">
                 <span 
                     v-for="(tag, tagIndex) in item.metadata.Tags.slice(0, 3)" 
@@ -47,30 +47,45 @@
             <span v-else class="list-empty">-</span>
         </div>
         <!-- 渠道类型 -->
-        <div class="list-col list-col-channel">
+        <div v-if="visibleColumns.includes('channel')" class="list-col list-col-channel">
             {{ isFolder ? '-' : (item.metadata?.Channel || item.channelTag || '-') }}
         </div>
         <!-- 渠道名称 -->
-        <div class="list-col list-col-channel-name">
+        <div v-if="visibleColumns.includes('channel-name')" class="list-col list-col-channel-name">
             <div v-if="!isFolder && item.metadata?.ChannelName" class="channel-name-box">{{ item.metadata.ChannelName }}</div>
             <span v-else class="list-empty">-</span>
         </div>
         <!-- 上传地址 -->
-        <div class="list-col list-col-address">
+        <div v-if="visibleColumns.includes('address')" class="list-col list-col-address">
             <div v-if="!isFolder && item.metadata?.UploadIP" class="address-box">{{ item.metadata.UploadIP }}</div>
             <span v-else class="list-empty">-</span>
         </div>
         <!-- 大小 -->
-        <div class="list-col list-col-size">
+        <div v-if="visibleColumns.includes('size')" class="list-col list-col-size">
             {{ isFolder ? '-' : fileSizeDisplay }}
         </div>
         <!-- 上传时间 -->
-        <div class="list-col list-col-date">
+        <div v-if="visibleColumns.includes('date')" class="list-col list-col-date">
             {{ uploadDate }}
         </div>
         <!-- 操作 -->
         <div class="list-col list-col-actions">
             <template v-if="!isFolder">
+<el-tooltip :content="$t('dashboard.detail')" placement="top">
+                        <button class="list-action-btn" :aria-label="$t('dashboard.detail')" @click.stop="$emit('detail')">
+                            <font-awesome-icon icon="info-circle"/>
+                        </button>
+                    </el-tooltip>
+<el-tooltip :content="$t('dashboard.tags')" placement="top">
+                        <button class="list-action-btn" :aria-label="$t('dashboard.tags')" @click.stop="$emit('tags')">
+                            <font-awesome-icon icon="tags"/>
+                        </button>
+                    </el-tooltip>
+<el-tooltip :content="$t('dashboard.quickRename')" placement="top">
+                        <button class="list-action-btn" :aria-label="$t('dashboard.quickRename')" @click.stop="$emit('rename')">
+                            <font-awesome-icon icon="i-cursor"/>
+                        </button>
+                    </el-tooltip>
                 <el-tooltip :content="$t('dashboard.copyLink')" placement="top">
                     <button class="list-action-btn" @click.stop="$emit('copy')">
                         <font-awesome-icon icon="copy"/>
@@ -114,9 +129,10 @@ export default {
     props: {
         item: { type: Object, required: true },
         selected: { type: Boolean, default: false },
-        fileLink: { type: String, default: '' }
+        fileLink: { type: String, default: '' },
+        visibleColumns: { type: Array, required: true }
     },
-    emits: ['update:selected', 'enter', 'detail', 'copy', 'folderCopy', 'move', 'delete', 'download', 'touchstart', 'touchend', 'touchmove'],
+    emits: ['update:selected', 'enter', 'detail', 'tags', 'rename', 'copy', 'folderCopy', 'move', 'delete', 'download', 'touchstart', 'touchend', 'touchmove'],
     data() {
         return {
             localSelected: this.selected,
@@ -211,12 +227,13 @@ export default {
 <style scoped>
 .list-item {
     display: grid;
-    grid-template-columns: 50px 60px minmax(180px, 1fr) 130px 100px 110px 130px 80px 100px 120px;
+    grid-template-columns: var(--list-columns);
     padding: 12px 20px;
     align-items: center;
     transition: background 0.2s ease;
     border-bottom: 1px solid var(--el-border-color-lighter);
-    min-width: fit-content;
+    min-width: var(--list-min-width);
+    box-sizing: border-box;
 }
 .list-item:last-child {
     border-bottom: none;
@@ -371,18 +388,5 @@ export default {
 }
 .list-action-danger:hover {
     background: var(--el-color-danger);
-}
-@media (max-width: 768px) {
-    .list-item {
-        grid-template-columns: 28px 40px 1fr auto;
-        padding: 10px 8px;
-        gap: 8px;
-    }
-    .list-col-size, .list-col-date, .list-col-tags, .list-col-channel, .list-col-channel-name, .list-col-address {
-        display: none;
-    }
-    .list-col-actions { gap: 4px; }
-    .list-action-btn { width: 28px; height: 28px; }
-    .list-col-checkbox { width: 24px; min-width: 24px; }
 }
 </style>

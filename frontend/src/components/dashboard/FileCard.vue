@@ -81,6 +81,16 @@
             </div>
             <div class="action-bar">
                 <div class="action-bar-left">
+<el-tooltip :content="$t('dashboard.tags')" placement="top">
+                        <button class="action-btn" :aria-label="$t('dashboard.tags')" @click.stop="$emit('tags')">
+                            <font-awesome-icon icon="tags"/>
+                        </button>
+                    </el-tooltip>
+<el-tooltip :content="$t('dashboard.quickRename')" placement="top">
+                        <button class="action-btn" :aria-label="$t('dashboard.quickRename')" @click.stop="$emit('rename')">
+                            <font-awesome-icon icon="i-cursor"/>
+                        </button>
+                    </el-tooltip>
                     <el-tooltip :disabled="disableTooltip" :content="$t('dashboard.detail')" placement="top">
                         <button class="action-btn" @click.stop="$emit('detail')">
                             <font-awesome-icon icon="info-circle"></font-awesome-icon>
@@ -124,7 +134,7 @@ export default {
         previewSrcList: { type: Array, default: () => [] },
         disableTooltip: { type: Boolean, default: false }
     },
-    emits: ['update:selected', 'detail', 'copy', 'move', 'delete', 'download', 'touchstart', 'touchend', 'touchmove'],
+    emits: ['update:selected', 'detail', 'tags', 'rename', 'copy', 'move', 'delete', 'download', 'touchstart', 'touchend', 'touchmove'],
     data() {
         return {
             localSelected: this.selected,
@@ -370,13 +380,15 @@ export default {
 .action-bar {
     display: flex;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
     align-items: center;
     opacity: 0;
     transform: translateY(4px);
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
 }
-.el-card:hover .action-bar {
+.el-card:hover .action-bar, .el-card:focus-within .action-bar {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
@@ -412,7 +424,9 @@ export default {
 }
 @media (max-width: 768px) {
     .action-bar {
-        display: none !important;
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
     }
 }
 
