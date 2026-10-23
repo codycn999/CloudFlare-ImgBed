@@ -878,5 +878,25 @@
       "telegram_rejected": "Telegram 拒绝此文件，请检查媒体类型及 Bot 配置",
       "delivery_unknown": "结果未确认：请先查看 TG，避免重复发送；已停止后续发送"
     }
+  },
+  "replaceFile": {
+    "title": "替换文件",
+    "source": "源文件：",
+    "target": "被替换文件：",
+    "hint": "选择一个同类型的目标文件，用源文件内容替换它。灰色文件不可选择。",
+    "up": "上一级",
+    "folder": "输入文件夹路径，留空为根目录",
+    "open": "打开",
+    "empty": "当前目录没有文件",
+    "previous": "上一页",
+    "next": "下一页",
+    "preserved": "目标文件的链接、名称、目录和标签保持不变，内容更新为源文件。",
+    "deleteSource": "替换成功后删除源文件",
+    "deleteHint": "源文件的原有引用链接将失效；被替换文件的链接继续有效。",
+    "cancel": "取消",
+    "confirm": "确认替换",
+    "loadFailed": "加载目标文件失败，请重试",
+    "failed": "替换失败",
+    "success": "替换成功，目标文件链接保持不变"
   }
 }

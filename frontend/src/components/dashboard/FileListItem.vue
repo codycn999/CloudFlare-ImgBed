@@ -96,6 +96,11 @@
                         <font-awesome-icon icon="download"/>
                     </button>
                 </el-tooltip>
+                <el-tooltip :content="$t('replaceFile.title')" placement="top">
+                        <button class="list-action-btn" :aria-label="$t('replaceFile.title')" @click.stop="$emit('replace')">
+                            <font-awesome-icon icon="file-signature" />
+                        </button>
+                    </el-tooltip>
                 <el-tooltip :content="$t('dashboard.moveFile')" placement="top">
                     <button class="list-action-btn" @click.stop="$emit('move')">
                         <font-awesome-icon icon="file-export"/>
@@ -103,7 +108,8 @@
                 </el-tooltip>
             </template>
             <template v-else>
-                <el-tooltip :content="$t('dashboard.copyLink')" placement="top">
+
+                    <el-tooltip :content="$t('dashboard.copyLink')" placement="top">
                     <button class="list-action-btn" @click.stop="$emit('folderCopy')">
                         <font-awesome-icon icon="copy"/>
                     </button>
@@ -132,7 +138,7 @@ export default {
         fileLink: { type: String, default: '' },
         visibleColumns: { type: Array, required: true }
     },
-    emits: ['update:selected', 'enter', 'detail', 'tags', 'rename', 'copy', 'folderCopy', 'move', 'delete', 'download', 'touchstart', 'touchend', 'touchmove'],
+    emits: ['update:selected', 'enter', 'detail', 'tags', 'rename', 'copy', 'folderCopy', 'replace', 'move', 'delete', 'download', 'touchstart', 'touchend', 'touchmove'],
     data() {
         return {
             localSelected: this.selected,

@@ -21,8 +21,8 @@ export function listColumnLayout(value) {
     const widths = optionalListColumns.filter(column => selected.includes(column.key));
     const preview = selected.includes('preview') ? ['60px'] : [];
     return {
-        '--list-columns': ['50px', ...preview, 'minmax(180px, 1fr)', ...widths.filter(c => c.key !== 'preview').map(c => `${c.width}px`), '280px'].join(' '),
-        '--list-min-width': `${50 + 180 + 280 + 40 + widths.reduce((sum, column) => sum + column.width, 0)}px`
+        '--list-columns': ['50px', ...preview, 'minmax(180px, 1fr)', ...widths.filter(c => c.key !== 'preview').map(c => `${c.width}px`), '320px'].join(' '),
+        '--list-min-width': `${50 + 180 + 320 + 40 + widths.reduce((sum, column) => sum + column.width, 0)}px`
     };
 }
 export function validOverviewFileName(name) {

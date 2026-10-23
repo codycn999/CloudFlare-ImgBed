@@ -878,5 +878,25 @@
       "telegram_rejected": "Telegram rejected this file; check media type and bot settings",
       "delivery_unknown": "Unconfirmed: check Telegram before retrying to avoid duplicates. Remaining files stopped."
     }
+  },
+  "replaceFile": {
+    "title": "Replace file",
+    "source": "Source:",
+    "target": "File to replace:",
+    "hint": "Select a file of the same type to replace with the source content. Unavailable files are disabled.",
+    "up": "Parent",
+    "folder": "Folder path; empty for root",
+    "open": "Open",
+    "empty": "This folder is empty",
+    "previous": "Previous",
+    "next": "Next",
+    "preserved": "The target keeps its links, name, folder and tags. Its content is replaced by the source.",
+    "deleteSource": "Delete source after successful replacement",
+    "deleteHint": "Existing source links will stop working. Target links remain valid.",
+    "cancel": "Cancel",
+    "confirm": "Confirm replacement",
+    "loadFailed": "Could not load target files. Please retry.",
+    "failed": "Replacement failed",
+    "success": "File replaced. Target links are unchanged."
   }
 }

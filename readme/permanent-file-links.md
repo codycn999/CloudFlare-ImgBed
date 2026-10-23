@@ -42,3 +42,7 @@ npx wrangler pages functions build functions --outdir .wrangler/identity-build
 ```
 
 测试包含 KV/D1 身份持久化、连续改名/移动后的旧链接、删除与路径复用保护，以及真实读取/改名/移动处理函数在模拟 Telegram 服务下返回相同图片字节和 Content-Type。
+
+## 替换文件内容
+
+单文件操作支持保留目标原链接、用另一个已入库文件的内容替换，详见 [单文件替换](file-replacement.md)。
