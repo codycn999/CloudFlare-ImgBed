@@ -1,6 +1,5 @@
 import { getDatabase } from './databaseAdapter.js';
 import { isFixedId } from './fileIdentity.js';
-import { purgeCFCache, purgePublicFileListCache, purgeRandomFileListCache } from './purgeCache.js';
 
 export const TRASH_PREFIX = 'manage@trash@';
 export const trashError = (message, status = 409) => Object.assign(new Error(message), { status });
@@ -71,6 +70,8 @@ export async function moveFileToTrash(db, path) {
 }
 
 export async function invalidateTrashCaches(context, path) {
+    // Keep index/list imports independent of the legacy cache module graph.
+    const { purgeCFCache, purgePublicFileListCache, purgeRandomFileListCache } = await import('./purgeCache.js');
     const url = new URL(context.request.url);
     const parts = path.split('/').slice(0, -1);
     const dirs = ['', ...parts.map((_, i) => parts.slice(0, i + 1).join('/'))];
