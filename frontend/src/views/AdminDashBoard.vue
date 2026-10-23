@@ -170,6 +170,7 @@
                         @detail="openDetailDialog(index, item.name)"
                         @tags="handleTagManagement(item.name)"
                         @rename="openQuickRename(item)"
+                        @replace="openReplaceDialog(item)"
                         @copy="handleCopy(index, item.name)"
                         @move="handleMove(index, item.name)"
                         @delete="handleDelete(index, item.name)"
@@ -220,6 +221,7 @@
                         @detail="openDetailDialog(index, item.name)"
                         @tags="handleTagManagement(item.name)"
                         @rename="openQuickRename(item)"
+                        @replace="openReplaceDialog(item)"
                         @copy="handleCopy(index, item.name)"
                         @folderCopy="handleFolderCopy(item.name)"
                         @move="handleMove(index, item.name)"
@@ -398,6 +400,8 @@
             @navigate="navigateToFolder"
             @goBack="handleGoBack"
         />
+        <ReplaceFileDialog v-model="showReplaceDialog" :source="replaceSource"
+            :current-directory="currentPath" @replaced="handleReplaced" />
         <!-- 移动文件对话框 -->
         <MoveFileDialog
             v-model="showMoveDialog"
@@ -420,6 +424,7 @@ import BatchTagDialog from '@/components/dashboard/BatchTagDialog.vue';
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader.vue';
 import FileCard from '@/components/dashboard/FileCard.vue';
 import FolderCard from '@/components/dashboard/FolderCard.vue';
+import ReplaceFileDialog from '@/components/dashboard/ReplaceFileDialog.vue';
 import MoveFileDialog from '@/components/dashboard/MoveFileDialog.vue';
 import FileListItem from '@/components/dashboard/FileListItem.vue';
 import FileDetailDialog from '@/components/dashboard/FileDetailDialog.vue';
@@ -501,6 +506,7 @@ data() {
         },
         channelNameOptions: [], // 动态从文件列表中提取
         // 移动文件对话框相关状态
+        showReplaceDialog: false, replaceSource: null,
         showMoveDialog: false, // 移动文件对话框
         moveTargetPath: '/', // 移动目标路径
         moveFileKey: '', // 当前移动的文件key
@@ -523,6 +529,7 @@ components: {
     MobileDirectoryDrawer,
     FilterDropdown,
     MoveFileDialog,
+    ReplaceFileDialog,
     LanguageSwitcher
 },
 setup() {
@@ -817,6 +824,9 @@ methods: {
                 break;
             case 'move':
                 this.handleMove(index, file.name);
+                break;
+            case 'replace':
+                this.openReplaceDialog(file);
                 break;
             case 'delete':
                 this.handleDelete(index, file.name);
@@ -1380,6 +1390,18 @@ methods: {
             this.handleBatchWhite();
         }
     },
+    openReplaceDialog(file) {
+        if (!file || this.isFolder(file)) return;
+        this.replaceSource = file;
+        this.showReplaceDialog = true;
+    },
+    async handleReplaced(result) {
+        if (result.sourceDeleted) fileManager.removeFile(this.replaceSource.name);
+        this.selectedFiles = [];
+        if (result.warnings?.length) this.$message.warning(result.warnings.join('；'));
+        else this.$message.success(this.$t('replaceFile.success'));
+        await this.refreshFileList();
+    },
     handleMove(index, key) {
         // 打开自定义移动对话框
         this.moveFileKey = key;
@@ -1629,7 +1651,8 @@ methods: {
     },
     getFileLink(filename) {
         const fileLink = process.env.NODE_ENV === 'production' ? `/file/${filename}?from=admin` : `/api/file/${filename}?from=admin`;
-        return fileLink;
+        const file = this.tableData.find(item => item.name === filename) || (this.detailFile?.name === filename ? this.detailFile : null);
+        return file?.metadata?.ContentVersion ? fileLink + '&v=' + encodeURIComponent(file.metadata.ContentVersion) : fileLink;
     },
     async handlePageChange(page) {
         if (this.loading || page < 1 || page > this.realTotalPages) return;

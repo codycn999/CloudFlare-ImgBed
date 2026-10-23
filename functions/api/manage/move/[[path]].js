@@ -154,7 +154,7 @@ async function moveFile(env, fileId, newFileId, cdnUrl, url) {
             const R2DataBase = env.img_r2;
 
             // 获取原文件内容
-            const object = await R2DataBase.get(fileId);
+            const object = await R2DataBase.get(img.metadata.R2FileKey || fileId);
             if (!object) {
                 throw new Error('R2 Object Not Found');
             }
@@ -163,7 +163,8 @@ async function moveFile(env, fileId, newFileId, cdnUrl, url) {
             await R2DataBase.put(newFileId, object.body);
 
             // 删除旧文件
-            await R2DataBase.delete(fileId);
+            await R2DataBase.delete(img.metadata.R2FileKey || fileId);
+            delete img.metadata.R2FileKey;
         }
 
         // S3 渠道的图片，需要移动S3中对应的图片

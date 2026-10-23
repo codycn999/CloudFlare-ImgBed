@@ -148,7 +148,7 @@ async function deleteFile(env, fileId, cdnUrl, url) {
         // 如果是R2渠道的图片，需要删除R2中对应的图片
         if (img.metadata?.Channel === 'CloudflareR2') {
             const R2DataBase = env.img_r2;
-            await R2DataBase.delete(fileId);
+            await R2DataBase.delete(img.metadata.R2FileKey || fileId);
         }
 
         // S3 渠道的图片，需要删除S3中对应的图片

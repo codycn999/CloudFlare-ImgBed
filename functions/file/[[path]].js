@@ -83,7 +83,7 @@ export async function onRequest(context) {  // Contents of context object
 
     /* Cloudflare R2渠道 */
     if (imgRecord.metadata?.Channel === 'CloudflareR2') {
-        return await handleR2File(context, fileId, encodedFileName, fileType);
+        return await handleR2File(context, imgRecord.metadata.R2FileKey || fileId, encodedFileName, fileType);
     }
 
     /* S3渠道 */
