@@ -22,6 +22,7 @@
                     />
                 </div>
                 <div class="actions">
+                <QuickUpload :current-path="currentPath" @uploaded="scheduleUploadRefresh" />
                 <el-tooltip :content="$t('tagCatalog.title')" placement="bottom">
                     <button class="column-settings-btn" :aria-label="$t('tagCatalog.title')" @click="showTagCatalog = true"><font-awesome-icon icon="tags" class="header-icon" /></button>
                 </el-tooltip>
@@ -425,6 +426,7 @@ import SkeletonLoader from '@/components/dashboard/SkeletonLoader.vue';
 import FileCard from '@/components/dashboard/FileCard.vue';
 import FolderCard from '@/components/dashboard/FolderCard.vue';
 import ReplaceFileDialog from '@/components/dashboard/ReplaceFileDialog.vue';
+import QuickUpload from '@/components/dashboard/QuickUpload.vue';
 import MoveFileDialog from '@/components/dashboard/MoveFileDialog.vue';
 import FileListItem from '@/components/dashboard/FileListItem.vue';
 import FileDetailDialog from '@/components/dashboard/FileDetailDialog.vue';
@@ -446,6 +448,7 @@ mixins: [backgroundManager],
 data() {
     return {
         Number: 0,
+        uploadRefreshTimer: null,
         normalizationRunning: false, normalizationError: false, normalizationResult: null,
         directFileCount: 0, // 当前目录直接子文件数量
         directFolderCount: 0, // 当前目录直接子文件夹数量
@@ -515,6 +518,7 @@ data() {
     }
 },
 components: {
+    QuickUpload,
     BatchTelegramDialog,
     DashboardTabs,
     TagCatalogDialog,
@@ -748,6 +752,10 @@ watch: {
     }
 },
 methods: {
+    scheduleUploadRefresh() {
+        clearTimeout(this.uploadRefreshTimer);
+        this.uploadRefreshTimer = setTimeout(() => this.refreshFileList(), 700);
+    },
     async normalizeExistingNames(restart = false) {
         if (this.normalizationRunning) return;
         this.normalizationRunning = true;
@@ -2107,6 +2115,9 @@ methods: {
         }
     },
 },
+beforeUnmount() {
+    clearTimeout(this.uploadRefreshTimer);
+},
 mounted() {
     // 初始化背景图
     this.initializeBackground('adminBkImg', '.container', false, true);
@@ -2985,7 +2996,7 @@ html.dark .header-content, html.dark .header-content:hover { background: rgba(28
 @media (max-width: 768px) {
     .container > :deep(.el-container) > .el-header { padding: 6px 12px 0; }
     .header-content { flex-direction: row; flex-wrap: wrap; justify-content: space-between; padding: 8px 10px; gap: 8px; width: 100%; }
-    .header-content .actions { width: 100%; justify-content: space-between; gap: 8px; }
+    .header-content .actions { width: 100%; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
     .search-area { margin-left: auto; }
     .search-card :deep(.el-input__inner), .search-card :deep(.el-input__inner:focus) { width: clamp(80px, 20vw, 160px); height: 30px; }
     .main-container { padding: 10px 12px 20px; margin-top: 0; scroll-margin-top: 132px; }

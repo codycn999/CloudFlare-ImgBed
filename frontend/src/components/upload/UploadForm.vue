@@ -1,5 +1,30 @@
 <template>
-    <div class="upload-form">
+    <div class="upload-form" :class="{ 'quick-upload-form': compact }">
+        <template v-if="compact">
+            <el-upload multiple :http-request="uploadFile" :on-success="handleSuccess" :on-error="handleError"
+                :before-upload="beforeUpload" :on-progress="handleProgress" :show-file-list="false"
+                :disabled="disabled || quickUploadBusy" @click="$emit('select')">
+                <el-button type="primary" size="small" :disabled="disabled || quickUploadBusy" :loading="quickUploadBusy">
+                    <font-awesome-icon v-if="!quickUploadBusy" icon="cloud-upload" />
+                    <span>{{ $t('dashboard.quickUpload') }}</span>
+                </el-button>
+            </el-upload>
+            <el-popover v-if="fileList.length" placement="bottom-end" trigger="click" :width="300">
+                <template #reference>
+                    <el-button size="small" :aria-label="$t('dashboard.uploadProgress')">{{ uploadSuccessCount }}/{{ fileList.length }}</el-button>
+                </template>
+                <div class="quick-upload-results" role="status" aria-live="polite">
+                    <strong>{{ $t('dashboard.uploadProgress') }}</strong>
+                    <div v-for="file in fileList" :key="file.uid" class="quick-upload-result">
+                        <span :title="file.name">{{ file.name }}</span>
+                        <el-progress :percentage="Math.min(100, Math.round(file.progreess || 0))"
+                            :status="file.status === 'exception' ? 'exception' : ['success', 'done'].includes(file.status) ? 'success' : undefined" />
+                    </div>
+                    <el-button v-if="uploadErrorCount" size="small" :disabled="quickUploadBusy" @click="retryError">{{ $t('upload.retryFailed') }}</el-button>
+                </div>
+            </el-popover>
+        </template>
+        <template v-else>
         <div 
             class="upload-card-wrapper"
             @mousemove="handleUploadCardMouseMove"
@@ -118,6 +143,7 @@
                 </el-scrollbar>
             </div>
         </el-card>
+        </template>
     </div>
 </template>
 
@@ -131,10 +157,13 @@ import UploadFileItem from '@/components/upload/UploadFileItem.vue'
 
 export default {
 name: 'UploadForm',
+emits: ['select', 'uploaded'],
 components: {
     UploadFileItem
 },
 props: {
+    compact: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false },
     selectedUrlForm: {
         type: String,
         default: 'url',
@@ -214,6 +243,7 @@ props: {
 data() {
     return {
         fileList: [],
+        preparingUploads: 0,
         uploading: false,
         maxUploading: 6,
         exceptionList: [],
@@ -267,10 +297,13 @@ watch: {
         immediate: true
     },
     autoReUpload(val) {
-        this.$store.commit('setStoreAutoReUpload', val)
+        if (!this.compact) this.$store.commit('setStoreAutoReUpload', val)
     }
 },
 computed: {
+    quickUploadBusy() {
+        return this.preparingUploads > 0 || this.activeUploads > 0 || this.uploadQueue.length > 0
+    },
     ...mapGetters([
         'storeAutoReUpload'
     ]),
@@ -306,11 +339,12 @@ computed: {
     }
 },
 mounted() {
-    document.addEventListener('paste', this.handlePaste)
-    this.autoReUpload = this.storeAutoReUpload
+    if (!this.compact) document.addEventListener('paste', this.handlePaste)
+    this.autoReUpload = this.compact ? false : this.storeAutoReUpload
 },
 beforeUnmount() {
     document.removeEventListener('paste', this.handlePaste)
+    if (this.compact) this.abortControllers.forEach(controller => controller.abort())
     // 清理状态
     this.uploadQueue = []
     this.fileList = []
@@ -464,10 +498,10 @@ methods: {
             url: '/upload' + 
                 '?serverCompress=' + needServerCompress + 
                 '&uploadChannel=' + uploadChannel + 
-                (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
+                ((fileItem.channelName ?? this.channelName) ? '&channelName=' + encodeURIComponent(fileItem.channelName ?? this.channelName) : '') +
                 '&uploadNameType=' + uploadNameType + 
                 '&autoRetry=' + autoRetry + 
-                '&uploadFolder=' + encodeURIComponent(this.uploadFolder),
+                '&uploadFolder=' + encodeURIComponent(fileItem.uploadFolder ?? this.uploadFolder),
             method: 'post',
             data: formData,
             withAuthCode: true,
@@ -484,7 +518,7 @@ methods: {
                 console.log('上传已取消:', file.file.name)
                 return
             }
-            if (err.response && err.response.status !== 401) {
+            if (err.response && (err.response.status !== 401 || this.compact)) {
                 this.exceptionList.push(file)
                 file.onError(err, file.file)
             } else if (!err.response) {
@@ -548,10 +582,10 @@ methods: {
                 url: '/upload' + 
                     '?serverCompress=' + needServerCompress + 
                     '&uploadChannel=' + uploadChannel + 
-                    (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
+                    ((fileItem.channelName ?? this.channelName) ? '&channelName=' + encodeURIComponent(fileItem.channelName ?? this.channelName) : '') +
                     '&uploadNameType=' + uploadNameType + 
                     '&autoRetry=' + autoRetry + 
-                    '&uploadFolder=' + encodeURIComponent(this.uploadFolder) +
+                    '&uploadFolder=' + encodeURIComponent(fileItem.uploadFolder ?? this.uploadFolder) +
                     '&initChunked=true',
                 method: 'post',
                 data: initFormData,
@@ -605,10 +639,10 @@ methods: {
                             url: '/upload' + 
                                 '?serverCompress=' + needServerCompress + 
                                 '&uploadChannel=' + uploadChannel + 
-                                (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
+                                ((fileItem.channelName ?? this.channelName) ? '&channelName=' + encodeURIComponent(fileItem.channelName ?? this.channelName) : '') +
                                 '&uploadNameType=' + uploadNameType + 
                                 '&autoRetry=' + autoRetry + 
-                                '&uploadFolder=' + encodeURIComponent(this.uploadFolder) +
+                                '&uploadFolder=' + encodeURIComponent(fileItem.uploadFolder ?? this.uploadFolder) +
                                 '&chunked=true',
                             method: 'post',
                             data: formData,
@@ -695,10 +729,10 @@ methods: {
                 url: '/upload' + 
                     '?serverCompress=' + needServerCompress + 
                     '&uploadChannel=' + uploadChannel + 
-                    (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
+                    ((fileItem.channelName ?? this.channelName) ? '&channelName=' + encodeURIComponent(fileItem.channelName ?? this.channelName) : '') +
                     '&uploadNameType=' + uploadNameType + 
                     '&autoRetry=' + autoRetry + 
-                    '&uploadFolder=' + encodeURIComponent(this.uploadFolder) +
+                    '&uploadFolder=' + encodeURIComponent(fileItem.uploadFolder ?? this.uploadFolder) +
                     '&chunked=true&merge=true',
                 method: 'post',
                 data: mergeFormData,
@@ -731,7 +765,7 @@ methods: {
                     })
             }
             
-            if (err.response && err.response.status !== 401) {
+            if (err.response && (err.response.status !== 401 || this.compact)) {
                 this.exceptionList.push(file)
                 file.onError(err, file.file)
             } else if (!err.response) {
@@ -793,6 +827,7 @@ methods: {
             }
             fileItem.progreess = 100
             fileItem.status = 'success'
+            this.$emit('uploaded', fileItem)
             
             // Save to history
             this.saveToHistory(fileItem)
@@ -849,6 +884,7 @@ methods: {
         this.$message({ type: 'success', message: this.$t('uploadForm.copySuccess') })
     },
     beforeUpload(file) {
+        this.preparingUploads++
         return new Promise(async (resolve, reject) => {
             let processedFile = file
             
@@ -891,6 +927,7 @@ methods: {
                     status: 'uploading',
                     progreess: 0,
                     serverCompress: serverCompress,
+                    ...(this.compact ? { uploadFolder: this.uploadFolder, channelName: this.channelName, uploadChannel: this.uploadChannel } : {}),
                     retryCount: 0,
                 })
                 resolve(file)
@@ -946,7 +983,7 @@ methods: {
                 this.$message.error(this.$t('uploadForm.fileTooLarge', { name: processedFile.name }))
                 reject(this.$t('uploadForm.fileSizeTooLarge'))
             }
-        })
+        }).finally(() => { this.preparingUploads-- })
     },
     handleProgress(event) {
         const fileItem = this.fileList.find(item => item.uid === event.file.uid)
@@ -1265,9 +1302,9 @@ methods: {
                     fileType: file.file.type,
                     sha256,
                     fileSample,
-                    channelName: this.channelName, // 传递指定的渠道名称
+                    channelName: fileItem.channelName ?? this.channelName, // 传递指定的渠道名称
                     uploadNameType: this.uploadNameType,
-                    uploadFolder: this.uploadFolder
+                    uploadFolder: fileItem.uploadFolder ?? this.uploadFolder
                 },
                 withAuthCode: true,
                 signal: abortController.signal
@@ -1532,6 +1569,11 @@ beforeDestroy() {
     justify-content: center;
     align-items: center;
 }
+.upload-form.quick-upload-form { flex-direction: row; gap: 6px; flex-shrink: 0; }
+.quick-upload-form :deep(.el-button > span) { display: inline-flex; align-items: center; gap: 6px; }
+.quick-upload-results { max-height: 320px; overflow-y: auto; }
+.quick-upload-result { margin: 12px 0; }
+.quick-upload-result > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upload-list-card {
     width: 55vw;
     height: 7vh;
