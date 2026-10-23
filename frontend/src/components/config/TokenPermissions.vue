@@ -20,6 +20,7 @@ export default {
             { value: 'organize', label: 'permOrganize' },
             { value: 'replace', label: 'permReplace' },
             { value: 'delete', label: 'permDelete' },
+            { value: 'purge', label: 'permPurge' },
             { value: 'upload', label: 'permUpload' },
             { value: 'manage', label: 'permManage' }
         ] };

@@ -1,4 +1,4 @@
-export const PERMISSIONS = ['list', 'organize', 'replace', 'delete', 'upload', 'manage'];
+export const PERMISSIONS = ['list', 'organize', 'replace', 'delete', 'purge', 'upload', 'manage'];
 export const PERMISSION_VERSION = 2;
 
 export function validPermissions(value) {
@@ -6,7 +6,7 @@ export function validPermissions(value) {
 }
 
 // Interpret existing tokens without rewriting secrets or expiration dates.
-// New/edited tokens store their six explicit grants using version 2.
+// New/edited tokens store explicit grants using version 2. Purge is never implied.
 export function effectivePermissions(token) {
     const permissions = new Set(Array.isArray(token.permissions) ? token.permissions.filter(p => PERMISSIONS.includes(p)) : []);
     if (token.permissionVersion !== PERMISSION_VERSION) {
@@ -24,6 +24,7 @@ export function managePermission(request) {
     const url = new URL(request.url);
     const route = url.pathname.replace(/^\/api\/manage\//, '').split('/');
     const read = request.method === 'GET' || request.method === 'HEAD';
+    if (route[0] === 'trash') return read ? 'list' : request.method === 'DELETE' ? 'purge' : 'delete';
     if (route[0] === 'delete') return 'delete';
     if (route[0] === 'replace') return 'replace';
     if (route[0] === 'rename' || route[0] === 'move') return 'organize';

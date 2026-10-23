@@ -96,6 +96,12 @@ const userAuthGuard = (to, from, next) => {
 
 const routes = [
   {
+    path: '/trash',
+    name: 'trash',
+    component: () => import('../views/Trash.vue'),
+    beforeEnter: adminAuthGuard
+  },
+  {
     path: '/',
     name: 'home',
     component: () => import('../views/UploadHome.vue'),
