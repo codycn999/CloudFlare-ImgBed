@@ -175,6 +175,9 @@ export class DiscordAPI {
             if (response.status === 204 || response.ok) {
                 return true;
             }
+              // A partially completed chunk purge can be retried safely.
+              // Only Unknown Message is absence; missing channel/access is not.
+              if (response.status === 404 && (await response.json().catch(() => ({}))).code === 10008) return true;
 
             console.error('Discord deleteMessage error:', response.status, response.statusText);
             return false;

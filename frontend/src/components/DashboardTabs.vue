@@ -21,10 +21,11 @@ export default {
         options() { return [
             { value: 'customerConfig', label: 'dashboardTabs.userManagement', icon: 'user-cog' },
             { value: 'dashboard', label: 'dashboardTabs.fileManagement', icon: 'images' },
+            { value: 'trash', label: 'trash.title', icon: 'trash-alt' },
             { value: 'systemConfig', label: 'dashboardTabs.systemSettings', icon: 'cogs' },
             { value: '', label: 'dashboardTabs.fileUpload', icon: 'upload' }
         ]; },
-        currentOption() { return this.options.find(option => option.value === this.activeTab) || this.options[3]; }
+        currentOption() { return this.options.find(option => option.value === this.activeTab) || this.options.find(option => option.value === ''); }
     },
     methods: { handleTabClick(tab) { if (tab !== this.activeTab) this.$router.push('/' + tab); } }
 };

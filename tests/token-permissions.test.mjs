@@ -16,7 +16,7 @@ function fixture() {
         delete: async key => map.delete(key),
         list: async ({ prefix = '' } = {}) => ({ keys: [...map].filter(([k]) => k.startsWith(prefix)).map(([name,r]) => ({ name, metadata:r.metadata })), list_complete:true })
     } };
-    const grants = Object.fromEntries(['list','organize','replace','delete','upload','manage'].map(p => [p, { token:p, permissions:[p], permissionVersion:2 }]));
+    const grants = Object.fromEntries(['list','organize','replace','delete','purge','upload','manage'].map(p => [p, { token:p, permissions:[p], permissionVersion:2 }]));
     grants.legacyOrg = { token:'legacyOrg', permissions:['organize'] };
     grants.legacyManage = { token:'legacyManage', permissions:['manage'] };
     map.set('manage@sysConfig@security', { value: JSON.stringify({ apiTokens: { tokens:grants } }) });
@@ -26,7 +26,7 @@ function fixture() {
     return { map, env, tasks, context, db:getDatabase(env) };
 }
 
-test('six grants are independent at the manage middleware, including reserved words in file paths', async()=>{
+test('seven grants are independent at the manage middleware, including reserved words in file paths', async()=>{
     const f=fixture();
     const routes = [
         ['/api/manage/list','GET','list'],
@@ -38,6 +38,9 @@ test('six grants are independent at the manage middleware, including reserved wo
         ['/api/manage/tags/catalog','POST','organize'],
         ['/api/manage/replace/list/file.png','POST','replace'],
         ['/api/manage/delete/list/file.png','GET','delete'],
+        ['/api/manage/trash','GET','list'],
+        ['/api/manage/trash/f_example/restore','POST','delete'],
+        ['/api/manage/trash/f_example','DELETE','purge'],
         ['/api/manage/metadata/list/file.png','PATCH','manage'],
         ['/api/manage/sysConfig/security','GET','manage'],
         ['/api/manage/apiTokens','POST','manage'],
@@ -46,7 +49,7 @@ test('six grants are independent at the manage middleware, including reserved wo
         ['/api/manage/cusConfig/list','GET','manage'],
         ...['rebuild','merge-operations','delete-operations','info'].map(a=>['/api/manage/list?action='+a,'GET','manage'])
     ];
-    for(const [path, method, required] of routes) for(const grant of ['list','organize','replace','delete','upload','manage']) {
+    for(const [path, method, required] of routes) for(const grant of ['list','organize','replace','delete','purge','upload','manage']) {
         const response=await middleware[1](f.context(path,grant,method));
         assert.equal(response.status,grant===required?200:401,`${grant} ${method} ${path}`);
     }

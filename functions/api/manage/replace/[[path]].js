@@ -1,4 +1,5 @@
 import { getDatabase } from '../../../utils/databaseAdapter.js';
+import { moveFileToTrash } from '../../../utils/trash.js';
 import { resolveFilePath } from '../../../utils/fileIdentity.js';
 import { authenticate, AUTH_SCOPE } from '../../../utils/auth/authCore.js';
 import { addFileToIndex, removeFileFromIndex } from '../../../utils/indexManager.js';
@@ -70,9 +71,8 @@ export async function onRequest(context) {
         if (body.deleteSource) {
             try {
                 if (signature(await db.getWithMetadata(sourcePath)) !== signature(source)) throw new Error('源文件已变化');
-                // Remove its library identity first. Remote cleanup is separate;
-                // the independent target snapshot stays readable in either case.
-                await db.delete(sourcePath);
+                // Preserve the source bytes and identity in the recycle bin.
+                await moveFileToTrash(db, sourcePath);
                 sourceDeleted = true;
             } catch { warnings.push('目标已替换，但源文件未删除，请检查后重试删除'); }
         }
@@ -91,11 +91,7 @@ export async function onRequest(context) {
             try { await removeStoredContent(env, targetPath, target); }
             catch { warnings.push('目标已替换，旧内容在存储服务中的清理失败'); }
         }
-        if (sourceDeleted) {
-            try { await removeStoredContent(env, sourcePath, source); }
-            catch { warnings.push('源文件已从图库删除，存储服务中的清理失败'); }
-        }
-        return reply({ success: true, targetPath, fixedId: metadata.FixedId, sourceDeleted, warnings });
+        return reply({ success: true, targetPath, fixedId: metadata.FixedId, sourceDeleted, sourceTrashed: sourceDeleted, warnings });
     } catch (error) {
         if (snapshot && !committed) await snapshot.rollback();
         console.error('File replacement failed:', error.message);

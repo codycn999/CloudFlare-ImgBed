@@ -9,10 +9,182 @@ import { onRequest as read } from '../functions/file/[[path]].js';
 import { onRequest as rename } from '../functions/api/manage/rename/[[path]].js';
 import { onRequest as move } from '../functions/api/manage/move/[[path]].js';
 import { onRequest as remove } from '../functions/api/manage/delete/[[path]].js';
+import { onRequest as trash } from '../functions/api/manage/trash/[[path]].js';
+import { TRASH_PREFIX, trashPage, hiddenTrashPaths } from '../functions/utils/trash.js';
+import { readIndex, addFileToIndex } from '../functions/utils/indexManager.js';
+import { registerEntry, catalogEntries } from '../functions/utils/organizationCatalog.js';
 import { cloneReplacementContent } from '../functions/utils/replacementStorage.js';
 import { S3Client } from '@aws-sdk/client-s3';
 import { DiscordAPI } from '../functions/utils/storage/discordAPI.js';
 import { HuggingFaceAPI } from '../functions/utils/storage/huggingfaceAPI.js';
+
+for (const engine of ['KV', 'D1']) {
+    test(engine + ': recycle bin preserves content, aliases and tags; restoration reactivates all links', async () => {
+        const f = fixture(engine);
+        const id = await f.add('source/new.png', { Channel: 'CloudflareR2', Tags: ['keep'], Width: 19, Height: 23 });
+        await f.env.img_r2.put('source/new.png', 'original');
+        assert.equal((await rename(f.context('source/new.png', 'POST', { newFileName: 'renamed.png' }))).status, 200);
+        const snapshot = await f.db.getWithMetadata('source/renamed.png');
+        await addFileToIndex(f.context(''), 'source/renamed.png', snapshot.metadata);
+        assert.equal((await remove(f.context('source/renamed.png', 'DELETE'))).status, 200);
+        assert.equal(f.objects.size, 1);
+        for (const path of [id, 'source/new.png', 'source/renamed.png']) assert.equal((await read(f.context(path, 'GET'))).status, 404);
+        const listing = await (await trash(f.context('', 'GET'))).json();
+        assert.equal(listing.files.length, 1);
+        assert.equal(listing.files[0].id, id);
+        assert.ok(!JSON.stringify(listing).includes('record'));
+        assert.ok(!JSON.stringify(listing).includes('TgBotToken'));
+        const indexed = await readIndex(f.context(''), { includeSubdirFiles: true });
+        assert.equal(indexed.files.length, 0);
+        assert.equal((await trash(f.context(id + '/restore', 'POST'))).status, 200);
+        assert.deepEqual(await f.db.getWithMetadata('source/renamed.png'), snapshot);
+        for (const path of [id, 'source/new.png', 'source/renamed.png']) assert.equal(await (await read(f.context(path, 'GET'))).text(), 'original');
+        assert.equal((await (await trash(f.context('', 'GET'))).json()).files.length, 0);
+        await Promise.all(f.tasks);
+    });
+
+    test(engine + ': purge only accepts trashed items, removes R2 bytes and cannot restore tombstones', async () => {
+        const f = fixture(engine), id = await f.add('source/new.png', { Channel: 'CloudflareR2' });
+        await f.env.img_r2.put('source/new.png', 'original');
+        assert.equal((await trash(f.context(id, 'DELETE'))).status, 404);
+        assert.ok(f.objects.has('source/new.png'));
+        assert.equal((await remove(f.context('source/new.png', 'DELETE'))).status, 200);
+        assert.equal((await trash(f.context(id, 'DELETE'))).status, 200);
+        assert.equal(f.objects.size, 0);
+        assert.equal((await trash(f.context(id + '/restore', 'POST'))).status, 404);
+        assert.equal((await trash(f.context(id, 'DELETE'))).status, 404);
+        const tombstone = JSON.parse(await f.db.get(TRASH_PREFIX + id));
+        assert.equal(tombstone.state, 'purged'); assert.ok(!tombstone.record);
+        assert.ok(await f.db.isPathReserved('source/new.png'));
+        await Promise.all(f.tasks);
+    });
+
+    test(engine + ': replacement trashes the source and its restoration cannot change target content', async () => {
+        const f = fixture(engine);
+        const source = await f.add('source/new.png', { Channel: 'CloudflareR2' });
+        const target = await f.add('target/old.png', { Channel: 'CloudflareR2' });
+        await f.env.img_r2.put('source/new.png', 'new image'); await f.env.img_r2.put('target/old.png', 'old image');
+        const result = await (await f.run(true)).json();
+        assert.equal(result.sourceTrashed, true);
+        assert.ok(f.objects.has('source/new.png'));
+        assert.equal((await trash(f.context(source + '/restore', 'POST'))).status, 200);
+        assert.equal(await (await read(f.context(source, 'GET'))).text(), 'new image');
+        assert.equal((await remove(f.context('source/new.png', 'DELETE'))).status, 200);
+        assert.equal((await trash(f.context(source, 'DELETE'))).status, 200);
+        assert.equal(await (await read(f.context(target, 'GET'))).text(), 'new image');
+        await Promise.all(f.tasks);
+    });
+
+    test(engine + ': folder deletion keeps empty folder structure recoverable and does not fetch a list endpoint', async () => {
+        const f = fixture(engine);
+        await registerEntry(f.db, 'folder', 'source'); await registerEntry(f.db, 'folder', 'source/empty');
+        const id = await f.add('source/new.png');
+        assert.equal((await remove(f.context('source', 'DELETE', undefined, '?folder=true'))).status, 200);
+        assert.equal((await catalogEntries(f.db, 'folder')).length, 0);
+        const listing = await (await trash(f.context('', 'GET'))).json();
+        assert.equal(listing.files.length, 2);
+        const folder = listing.files.find(e => e.kind === 'folder');
+        assert.equal((await trash(f.context(folder.id + '/restore', 'POST'))).status, 200);
+        assert.deepEqual((await catalogEntries(f.db, 'folder')).map(e => e.name).sort(), ['source', 'source/empty']);
+        assert.equal((await trash(f.context(id + '/restore', 'POST'))).status, 200);
+        await Promise.all(f.tasks);
+    });
+}
+
+test('purge storage failure remains retryable and blocks restoring potentially incomplete content', async () => {
+    const f = fixture(), id = await f.add('source/new.png', { Channel: 'CloudflareR2' });
+    await f.env.img_r2.put('source/new.png', 'original');
+    await remove(f.context('source/new.png', 'DELETE'));
+    const originalDelete = f.env.img_r2.delete;
+    f.env.img_r2.delete = async () => { throw new Error('storage unavailable'); };
+    assert.equal((await trash(f.context(id, 'DELETE'))).status, 500);
+    assert.equal(JSON.parse(await f.db.get(TRASH_PREFIX + id)).state, 'purging');
+    assert.equal((await trash(f.context(id + '/restore', 'POST'))).status, 409);
+    f.env.img_r2.delete = originalDelete;
+    assert.equal((await trash(f.context(id, 'DELETE'))).status, 200);
+    await Promise.all(f.tasks);
+});
+
+test('trash handlers enforce independent grants even without middleware; legacy manage cannot purge', async () => {
+    const f = fixture(), id = await f.add('source/new.png', { Channel: 'CloudflareR2' });
+    await f.env.img_r2.put('source/new.png', 'original');
+    const tokens = Object.fromEntries(['list','organize','replace','delete','purge','manage','upload'].map(p => [p, { token:p, permissions:[p], permissionVersion:2 }]));
+    tokens.legacy = { token:'legacy', permissions:['manage','delete','organize'] };
+    await f.db.put('manage@sysConfig@security', JSON.stringify({ apiTokens:{tokens} }));
+    const ctx = (path, method, token) => f.context(path, method, undefined, '', { Authorization:'Bearer '+token });
+    for (const token of ['list','organize','replace','purge','manage','upload']) assert.equal((await remove(ctx('source/new.png','DELETE',token))).status,401);
+    assert.equal((await remove(ctx('source/new.png','DELETE','delete'))).status,200);
+    for (const token of ['list','organize','replace','delete','manage','upload','legacy']) assert.equal((await trash(ctx(id,'DELETE',token))).status,401);
+    assert.equal((await trash(ctx('','GET','list'))).status,200);
+    assert.equal((await trash(ctx('','GET','purge'))).status,401);
+    assert.equal((await trash(ctx(id+'/restore','POST','purge'))).status,401);
+    assert.equal((await trash(ctx(id,'DELETE','purge'))).status,200);
+    await Promise.all(f.tasks);
+});
+
+test('storage shared with a live file is not physically deleted', async () => {
+    const f=fixture(), id=await f.add('source/new.png',{Channel:'CloudflareR2',R2FileKey:'shared'});
+    await f.add('target/old.png',{Channel:'CloudflareR2',R2FileKey:'shared'});
+    await f.env.img_r2.put('shared','original');
+    await remove(f.context('source/new.png','DELETE'));
+    assert.equal((await trash(f.context(id,'DELETE'))).status,409);
+    assert.ok(f.objects.has('shared'));
+    assert.equal(JSON.parse(await f.db.get(TRASH_PREFIX+id)).state,'deleted');
+    await Promise.all(f.tasks);
+});
+
+test('Telegram permanent deletion reports that remote bytes cannot be physically erased', async () => {
+    const f=fixture(), id=await f.add('source/new.png'); await f.add('target/old.png');
+    await remove(f.context('source/new.png','DELETE'));
+    const result=await (await trash(f.context(id,'DELETE'))).json();
+    assert.equal(result.success,true); assert.equal(result.storageDeleted,false);
+    await Promise.all(f.tasks);
+});
+
+test('D1 recycle-bin cursor pagination does not truncate at 100 or 1000 records', async () => {
+    const f=fixture('D1');
+    for(let i=0;i<1002;i++) await f.db.put(TRASH_PREFIX+'f_'+String(i).padStart(32,'0'),JSON.stringify({id:'f_'+String(i).padStart(32,'0'),path:'file-'+i,state:'purged'}));
+    let cursor, count=0;
+    do {const page=await trashPage(f.db,cursor,100);count+=page.entries.length;cursor=page.cursor;} while(cursor);
+    assert.equal(count,1002);
+    assert.equal((await hiddenTrashPaths(f.db)).size,1002);
+});
+
+test('shared recovery storage is retained until its last recycle-bin record is purged', async () => {
+    const f=fixture();
+    const first=await f.add('source/new.png',{Channel:'CloudflareR2',R2FileKey:'shared'});
+    const second=await f.add('target/old.png',{Channel:'CloudflareR2',R2FileKey:'shared'});
+    await f.env.img_r2.put('shared','original');
+    await remove(f.context('source/new.png','DELETE')); await remove(f.context('target/old.png','DELETE'));
+    const result=await (await trash(f.context(first,'DELETE'))).json();
+    assert.equal(result.success,true); assert.equal(result.storageDeleted,false); assert.ok(f.objects.has('shared'));
+    assert.equal((await trash(f.context(second,'DELETE'))).status,200); assert.equal(f.objects.size,0);
+    await Promise.all(f.tasks);
+});
+
+test('an archived folder structure does not hide a same-named live file', async () => {
+    const f=fixture(); await f.add('source'); await registerEntry(f.db,'folder','source');
+    await remove(f.context('source','DELETE',undefined,'?folder=true'));
+    assert.equal((await hiddenTrashPaths(f.db)).has('source'),false);
+});
+
+test('D1 folder deletion never treats underscores or percent signs as wildcards', async () => {
+    const f=fixture('D1');
+    await f.add('a_b/one.png'); await f.add('aXb/two.png');
+    await remove(f.context('a_b','DELETE',undefined,'?folder=true'));
+    assert.ok((await f.db.getWithMetadata('aXb/two.png')).metadata);
+    assert.equal((await f.db.getWithMetadata('a_b/one.png')),null);
+    await Promise.all(f.tasks);
+});
+
+test('Discord purge retry accepts Unknown Message but not an inaccessible channel', async () => {
+    const api=new DiscordAPI('test');
+    globalThis.fetch=async()=>Response.json({code:10008},{status:404});
+    assert.equal(await api.deleteMessage('channel','gone'),true);
+    globalThis.fetch=async()=>Response.json({code:10003},{status:404});
+    assert.equal(await api.deleteMessage('channel','gone'),false);
+});
+
 
 let originalFetch, originalCaches, purged;
 beforeEach(() => {
@@ -123,6 +295,8 @@ test('R2 content is independent after copy and subsequent source deletion; renam
     assert.equal((await move(f.context('target/renamed.png', 'GET', undefined, '?dist=archive'))).status, 200);
     assert.equal(await (await read(f.context(target, 'GET'))).text(), 'new image');
     assert.equal((await remove(f.context('archive/renamed.png', 'DELETE'))).status, 200);
+    assert.equal(f.objects.size, 2); // Soft deletion retains both physical objects.
+    for (const id of [source, target]) assert.equal((await trash(f.context(id, 'DELETE'))).status, 200);
     assert.equal(f.objects.size, 0); await Promise.all(f.tasks);
 });
 

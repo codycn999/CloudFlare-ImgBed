@@ -185,9 +185,14 @@ D1Database.prototype.listSettings = function(options) {
         query += ' WHERE key LIKE ?';
         params.push(prefix + '%');
     }
+    if (options.cursor) {
+        query += prefix ? ' AND' : ' WHERE';
+        query += ' key > ?';
+        params.push(options.cursor);
+    }
     
     query += ' ORDER BY key LIMIT ?';
-    params.push(limit);
+    params.push(limit + 1);
     
     var stmt = this.db.prepare(query);
     if (params.length > 0) {
@@ -195,6 +200,8 @@ D1Database.prototype.listSettings = function(options) {
     }
     return stmt.all().then(function(response) {
         var results = response.results || [];
+        var hasMore = results.length > limit;
+        if (hasMore) results.pop();
         var keys = results.map(function(row) {
             return {
                 name: row.key,
@@ -202,7 +209,7 @@ D1Database.prototype.listSettings = function(options) {
             };
         });
 
-        return { keys: keys };
+        return { keys: keys, list_complete: !hasMore, cursor: hasMore ? keys[keys.length - 1].name : null };
     });
 };
 

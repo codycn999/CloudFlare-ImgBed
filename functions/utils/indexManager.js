@@ -38,6 +38,7 @@
  */
 
 import { getDatabase, checkDatabaseConfig } from './databaseAdapter.js';
+import { hiddenTrashPaths } from './trash.js';
 
 const INDEX_KEY = 'manage@index';
 const INDEX_META_KEY = 'manage@index@meta'; // 索引元数据键
@@ -530,7 +531,8 @@ export async function readIndex(context, options = {}) {
             throw new Error('Failed to get index');
         }
 
-        let filteredFiles = index.files;
+        const hidden = await hiddenTrashPaths(getDatabase(context.env));
+        let filteredFiles = index.files.filter(file => !hidden.has(file.id));
 
         // 目录过滤
         if (directory) {

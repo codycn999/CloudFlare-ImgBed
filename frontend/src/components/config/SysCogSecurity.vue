@@ -553,6 +553,7 @@ methods: {
             'organize': this.$t('sysSecurity.permOrganize'),
             'replace': this.$t('sysSecurity.permReplace'),
             'delete': this.$t('sysSecurity.permDelete'), 
+            'purge': this.$t('sysSecurity.permPurge'),
             'list': this.$t('sysSecurity.permList'),
             'manage': this.$t('sysSecurity.permManage')
         };
