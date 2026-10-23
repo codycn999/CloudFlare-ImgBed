@@ -36,7 +36,7 @@ Discord、HuggingFace 复制需要重新上传，当前限制每个文件或分�
 }
 ```
 
-版本取自列表元数据 `ContentVersion`，未替换过的文件传空字符串。响应包含 `success`、`targetPath`、目标 `fixedId`、实际 `sourceDeleted` 和 `warnings`。替换需要 `manage` 权限；删除源文件还需 `delete` 权限。已有 `organize` 整理令牌不因此获得替换能力，`/api/agent` 的能力范围未扩展。
+版本取自列表元数据 `ContentVersion`，未替换过的文件传空字符串。响应包含 `success`、`targetPath`、目标 `fixedId`、实际 `sourceDeleted` 和 `warnings`。替换需要独立的“内容替换”（`replace`）权限；删除源文件还需“文件删除”（`delete`），两项在替换前检查。浏览并选择文件另需“文件浏览”（`list`）。文件整理与新 Token 的系统管理权限均不包含内容替换。旧管理 Token 的原有替换能力展开为显式 `replace` 授权，编辑时可取消；旧整理 Token 不获得替换能力。`/api/agent` 仍只提供浏览和整理接口，其能力发现会提示已授权的替换接口。
 
 ## 验证
 

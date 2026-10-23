@@ -1,4 +1,5 @@
 import { authenticate, AUTH_SCOPE } from "../../utils/auth/authCore.js";
+import { managePermission } from '../../utils/auth/permissions.js';
 
 const DEFAULT_MANAGE_CACHE_CONTROL = 'private, no-store, max-age=0';
 
@@ -42,26 +43,6 @@ function UnauthorizedException(reason) {
   });
 }
 
-/**
- * 根据请求路径提取所需权限
- * @param {string} pathname - 请求路径
- * @returns {string} 需要的权限类型
- */
-function extractRequiredPermission(pathname) {
-  const pathParts = pathname.toLowerCase().split('/');
-
-  if (pathParts.includes('delete')) {
-    return 'delete';
-  }
-
-  if (pathParts.includes('list')) {
-    return 'list';
-  }
-
-  // 其他 /api/manage 下的操作需要管理权限
-  return 'manage';
-}
-
 // CORS 跨域响应头
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,8 +60,7 @@ async function authentication(context) {
     });
   }
 
-  const pathname = new URL(context.request.url).pathname;
-  const requiredPermission = extractRequiredPermission(pathname);
+  const requiredPermission = managePermission(context.request);
 
   const result = await authenticate({
     env: context.env,

@@ -1,5 +1,6 @@
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { filterAutoDeleteTokens } from '../../utils/auth/tokenExpiration.js';
+import { effectivePermissions, validPermissions, PERMISSION_VERSION } from '../../utils/auth/permissions.js';
 
 export async function onRequest(context) {
     // API Token管理，支持创建、删除、列出Token
@@ -27,6 +28,7 @@ export async function onRequest(context) {
         const body = await request.json()
         if (!body || !validExpiration(body)) return Response.json({ error: 'Invalid expiration' }, { status: 400 });
         const { name, permissions, owner, expiresAt = null, autoDelete = false } = body
+        if (!validPermissions(permissions)) return Response.json({ error: 'Invalid permissions' }, { status: 400 });
 
         if (!name || !permissions || !owner) {
             return new Response(JSON.stringify({ error: '缺少必要参数' }), {
@@ -71,6 +73,7 @@ export async function onRequest(context) {
         const body = await request.json()
         if (!body || !validExpiration(body)) return Response.json({ error: 'Invalid expiration' }, { status: 400 });
         const { tokenId, permissions } = body
+        if (!validPermissions(permissions)) return Response.json({ error: 'Invalid permissions' }, { status: 400 });
 
         if (!tokenId || !permissions) {
             return new Response(JSON.stringify({ error: '缺少必要参数' }), {
@@ -119,7 +122,7 @@ async function getApiTokens(db) {
                 id,
                 name: token.name,
                 owner: token.owner,
-                permissions: token.permissions,
+                permissions: effectivePermissions(token),
                 createdAt: token.createdAt,
                 updatedAt: token.updatedAt,
                 token: token.token,
@@ -178,6 +181,7 @@ export async function createApiToken(db, name, permissions, owner, expiresAt = n
         token,
         owner,
         permissions,
+        permissionVersion: PERMISSION_VERSION,
         type,
         createdAt: now,
         updatedAt: now,
@@ -234,6 +238,7 @@ async function updateApiToken(db, tokenId, permissions, body) {
     }
     
     settings.apiTokens.tokens[tokenId].permissions = permissions
+    settings.apiTokens.tokens[tokenId].permissionVersion = PERMISSION_VERSION
     settings.apiTokens.tokens[tokenId].updatedAt = new Date().toISOString()
     const token = settings.apiTokens.tokens[tokenId];
     if (body.expiresAt !== undefined) {
@@ -284,7 +289,7 @@ export async function getTokenPermissions(db, token) {
     // 查找匹配的token
     for (const tokenId in tokens) {
         if (tokens[tokenId].token === token) {
-            return tokens[tokenId].permissions
+            return effectivePermissions(tokens[tokenId])
         }
     }
     
@@ -307,6 +312,7 @@ export async function getTokenData(db, token) {
                 token: t.token,
                 owner: t.owner,
                 permissions: t.permissions,
+                permissionVersion: t.permissionVersion,
                 createdAt: t.createdAt,
                 updatedAt: t.updatedAt,
                 expiresAt: t.expiresAt ?? null,

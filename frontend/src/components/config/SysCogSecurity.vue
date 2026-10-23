@@ -58,6 +58,7 @@
             </h4>
             <el-alert type="info" :closable="false" style="margin-bottom: 16px">
                 <p>{{ $t('sysSecurity.agentHelp') }}</p>
+                <p>{{ $t('sysSecurity.permissionLegacyHint') }}</p>
                 <el-button type="primary" size="small" @click="prepareAgentToken">{{ $t('sysSecurity.createAgentToken') }}</el-button>
                 <el-button size="small" @click="showAgentGuide = true">{{ $t('sysSecurity.agentGuide') }}</el-button>
             </el-alert>
@@ -226,19 +227,13 @@
         <FloatingSaveButton :show="!loading" @click="saveSettings" />
 
         <!-- 创建Token对话框 -->
-        <el-dialog v-model="showCreateTokenDialog" :title="$t('sysSecurity.createTokenTitle')" :width="dialogWidth">
+        <el-dialog v-model="showCreateTokenDialog" :title="$t('sysSecurity.createTokenTitle')" :width="dialogWidth" class="token-permission-dialog" top="4vh">
             <el-form :model="newToken" :rules="tokenRules" ref="tokenForm" label-width="100px">
                 <el-form-item :label="$t('sysSecurity.tokenNameLabel')" prop="name">
                     <el-input v-model="newToken.name" :placeholder="$t('sysSecurity.tokenNamePlaceholder')"/>
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.permissionsLabel')" prop="permissions">
-                    <el-checkbox-group v-model="newToken.permissions">
-                        <el-checkbox label="upload">{{ $t('sysSecurity.permUpload') }}</el-checkbox>
-                        <el-checkbox label="delete">{{ $t('sysSecurity.permDelete') }}</el-checkbox>
-                        <el-checkbox label="list">{{ $t('sysSecurity.permList') }}</el-checkbox>
-                        <el-checkbox label="organize">{{ $t('sysSecurity.permOrganize') }}</el-checkbox>
-                        <el-checkbox label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
-                    </el-checkbox-group>
+                    <TokenPermissions v-model="newToken.permissions" />
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.neverExpire')">
                     <el-switch v-model="newToken.neverExpire" @change="onCreateNeverExpireChange"/>
@@ -264,19 +259,13 @@
         </el-dialog>
 
         <!-- 编辑Token对话框 -->
-        <el-dialog v-model="showEditTokenDialog" :title="$t('sysSecurity.editTokenTitle')" :width="dialogWidth">
+        <el-dialog v-model="showEditTokenDialog" :title="$t('sysSecurity.editTokenTitle')" :width="dialogWidth" class="token-permission-dialog" top="4vh">
             <el-form :model="editingToken" :rules="editTokenRules" ref="editTokenForm" label-width="100px">
                 <el-form-item :label="$t('sysSecurity.tokenNameLabel')">
                     <el-input v-model="editingToken.name" disabled/>
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.permissionsLabel')" prop="permissions">
-                    <el-checkbox-group v-model="editingToken.permissions">
-                        <el-checkbox label="upload">{{ $t('sysSecurity.permUpload') }}</el-checkbox>
-                        <el-checkbox label="delete">{{ $t('sysSecurity.permDelete') }}</el-checkbox>
-                        <el-checkbox label="list">{{ $t('sysSecurity.permList') }}</el-checkbox>
-                        <el-checkbox label="organize">{{ $t('sysSecurity.permOrganize') }}</el-checkbox>
-                        <el-checkbox label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
-                    </el-checkbox-group>
+                    <TokenPermissions v-model="editingToken.permissions" />
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.neverExpire')">
                     <el-switch v-model="editingToken.neverExpire" @change="onEditNeverExpireChange"/>
@@ -346,11 +335,13 @@
 <script>
 import fetchWithAuth from '@/utils/fetchWithAuth';
 import FloatingSaveButton from '@/components/FloatingSaveButton.vue';
+import TokenPermissions from './TokenPermissions.vue';
 import { computeExpiresAt, getTokenStatus, expirationEditor, expirationUpdate } from '@/utils/tokenExpiration';
 
 export default {
 components: {
-    FloatingSaveButton
+    FloatingSaveButton,
+    TokenPermissions
 },
 data() {
     return {
@@ -523,7 +514,7 @@ computed: {
 },
 methods: {
     prepareAgentToken() {
-        this.newToken = { name: 'AI Agent', owner: 'Agent', permissions: ['organize'], neverExpire: false, expirationValue: 7, expirationUnit: 'd', autoDelete: false };
+        this.newToken = { name: 'AI Agent', owner: 'Agent', permissions: ['list', 'organize'], neverExpire: false, expirationValue: 7, expirationUnit: 'd', autoDelete: false };
         this.showCreateTokenDialog = true;
     },
 
@@ -560,6 +551,7 @@ methods: {
         const permissionMap = {
             'upload': this.$t('sysSecurity.permUpload'),
             'organize': this.$t('sysSecurity.permOrganize'),
+            'replace': this.$t('sysSecurity.permReplace'),
             'delete': this.$t('sysSecurity.permDelete'), 
             'list': this.$t('sysSecurity.permList'),
             'manage': this.$t('sysSecurity.permManage')
@@ -1089,6 +1081,8 @@ mounted() {
     text-overflow: ellipsis;
 }
 
+:deep(.token-permission-dialog) { max-height: 92vh; display: flex; flex-direction: column; }
+:deep(.token-permission-dialog .el-dialog__body) { overflow-y: auto; min-height: 0; }
 .token-copy-cell { flex-wrap: nowrap; }
 .token-copy-cell .token-display { min-width: 0; white-space: nowrap; }
 .token-copy-cell .el-button { flex-shrink: 0; }

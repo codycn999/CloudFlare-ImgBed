@@ -10,6 +10,7 @@ import {
 import { cleanPersistedMetadataInPlace } from "../../../utils/metadata/metadataSecurity.js";
 import { buildFileMetadataForManagement } from "../../../utils/metadata/metadataView.js";
 import { validateFileName } from '../../../utils/fileNaming.js';
+import { authenticate, AUTH_SCOPE } from '../../../utils/auth/authCore.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -78,6 +79,12 @@ export async function onRequest(context) {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
+        }
+
+        // Editing the MIME record is a repair operation, not ordinary organization.
+        if (typeof body.FileType === 'string') {
+            const auth = await authenticate({ env, request, requiredPermission: 'manage', authScope: AUTH_SCOPE.ADMIN });
+            if (!auth.authorized) return Response.json({ success: false, message: '修改文件类型需要系统管理权限' }, { status: 403 });
         }
 
         // 路径安全处理

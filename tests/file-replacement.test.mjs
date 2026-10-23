@@ -192,13 +192,35 @@ test('organize/list tokens cannot replace content; deleting a source also needs 
     await f.db.put('manage@sysConfig@security', JSON.stringify({ apiTokens: { tokens: {
         organizer: { id: 'organizer', token: 'org', permissions: ['organize'] },
         manager: { id: 'manager', token: 'mgr', permissions: ['manage'] },
+        newManager: { token: 'mgr2', permissions: ['manage'], permissionVersion: 2 },
+        newOrganizer: { token: 'org2', permissions: ['list', 'organize'], permissionVersion: 2 },
+        replacer: { token: 'replacer', permissions: ['replace'], permissionVersion: 2 },
+        deleter: { token: 'deleter', permissions: ['delete'], permissionVersion: 2 },
         all: { id: 'all', token: 'all', permissions: ['manage', 'delete'] }
     } } }));
     assert.equal((await f.run(false, {}, { Authorization: 'Bearer org' })).status, 401);
+    for (const token of ['mgr2', 'org2', 'deleter']) assert.equal((await f.run(false, {}, { Authorization: 'Bearer ' + token })).status, 401);
+    assert.equal((await f.run(true, {}, { Authorization: 'Bearer replacer' })).status, 403);
     assert.equal((await f.run(true, {}, { Authorization: 'Bearer mgr' })).status, 403);
     assert.equal((await f.run(false, {}, { Authorization: 'Bearer mgr' })).status, 200);
     const version = (await f.db.getWithMetadata('target/old.png')).metadata.ContentVersion;
     assert.equal((await f.run(true, { targetVersion: version }, { Authorization: 'Bearer all' })).status, 200);
+});
+
+test('explicit replace grant works without manage and requires delete to remove the source', async () => {
+    const f = fixture(); await f.add('source/new.png'); await f.add('target/old.png');
+    await f.db.put('manage@sysConfig@security', JSON.stringify({ apiTokens: { tokens: {
+        replacer: { token: 'replace-only', permissions: ['replace'], permissionVersion: 2 },
+        both: { token: 'replace-delete', permissions: ['replace', 'delete'], permissionVersion: 2 }
+    } } }));
+    const before = await f.db.getWithMetadata('target/old.png');
+    assert.equal((await f.run(true, {}, { Authorization: 'Bearer replace-only' })).status, 403);
+    assert.deepEqual(await f.db.getWithMetadata('target/old.png'), before);
+    assert.equal((await f.run(false, {}, { Authorization: 'Bearer replace-only' })).status, 200);
+    assert.ok((await f.db.getWithMetadata('source/new.png')).metadata);
+    const targetVersion = (await f.db.getWithMetadata('target/old.png')).metadata.ContentVersion;
+    assert.equal((await f.run(true, { targetVersion }, { Authorization: 'Bearer replace-delete' })).status, 200);
+    assert.equal((await f.db.getWithMetadata('source/new.png')).metadata, null);
 });
 
 test('picker compatibility excludes self, folders and mismatched types', async () => {

@@ -18,8 +18,8 @@ export async function onRequest(context) {
     if (request.method !== 'POST') return reply({ success: false, message: 'Method not allowed' }, 405);
     let snapshot; let committed = false; let locks = [];
     try {
-        const auth = await authenticate({ env, request, requiredPermission: 'manage', authScope: AUTH_SCOPE.ADMIN });
-        if (!auth.authorized) return reply({ success: false, message: '需要文件管理权限' }, 401);
+        const auth = await authenticate({ env, request, requiredPermission: 'replace', authScope: AUTH_SCOPE.ADMIN });
+        if (!auth.authorized) return reply({ success: false, message: '需要内容替换权限' }, 401);
         const body = await request.json().catch(() => { throw fail('请求格式错误'); });
         if (!body || typeof body.target !== 'string' || !body.target || typeof body.deleteSource !== 'boolean') {
             throw fail('请选择目标文件并明确是否删除源文件');
