@@ -195,6 +195,9 @@ async function buildFileAccessContext(context) {
             requiredPermission: 'manage',
             authScope: AUTH_SCOPE.ADMIN,
         });
+        if (!fileAccess.adminAuthResult.authorized) {
+            fileAccess.adminAuthResult = await authenticate({ env, request, requiredPermission: 'list', authScope: AUTH_SCOPE.ADMIN });
+        }
     }
 
     return fileAccess;

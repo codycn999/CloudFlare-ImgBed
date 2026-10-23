@@ -29,11 +29,12 @@ async function addFile(f,path='photos/a.png') {
     await f.db.put(path,'',{metadata:{FileName:path.split('/').pop(),FileType:'image/png',TimeStamp:1700000000000,Channel:'TelegramNew',TgFileId:'photo',Directory:'photos/',Tags:['旧标签'],UploadIP:'private-ip'}});
     return (await f.db.getWithMetadata(path)).metadata.FixedId;
 }
-test('agent requires explicit unexpired organize key, with no fallback when admin auth is disabled',async()=>{
+test('agent requires a valid key; legacy organize retains browsing without gaining replacement',async()=>{
     const f=fixture();
-    for(const token of [null,'bad','test-list','expired','malformed']) assert.equal((await agent(f.context('','GET',null,token))).status,401,token);
+    for(const token of [null,'bad','expired','malformed']) assert.equal((await agent(f.context('','GET',null,token))).status,401,token);
+    assert.equal((await agent(f.context('','GET',null,'test-list'))).status,200);
     assert.equal((await agent(f.context())).status,200);
-    for(const permission of ['manage','delete','upload','list']) {
+    for(const permission of ['manage','delete','upload','replace']) {
         const auth=await authenticate({env:f.env,request:f.context().request,requiredPermission:permission,authScope:AUTH_SCOPE.ADMIN});
         assert.equal(auth.authorized,false,permission);
     }

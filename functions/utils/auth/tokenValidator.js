@@ -1,6 +1,7 @@
 // API Token权限验证工具函数
 import { getTokenData } from '../../api/manage/apiTokens.js';
 import { isExpired } from './tokenExpiration.js';
+import { effectivePermissions } from './permissions.js';
 
 /**
  * 验证API Token权限
@@ -42,11 +43,12 @@ export async function validateApiToken(request, db, requiredPermission) {
     }
 
     // 检查权限，如果不需要特定权限（requiredPermission为null），则只要token有效就通过
-    if (requiredPermission !== null && (!Array.isArray(tokenData.permissions) || !tokenData.permissions.includes(requiredPermission))) {
+    const permissions = effectivePermissions(tokenData);
+    if (requiredPermission !== null && !permissions.includes(requiredPermission)) {
         return { valid: false, error: `缺少${requiredPermission}权限` };
     }
 
-    return { valid: true };
+    return { valid: true, permissions };
 }
 
 /**
