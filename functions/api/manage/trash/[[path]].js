@@ -1,4 +1,5 @@
 import { getDatabase } from '../../../utils/databaseAdapter.js';
+import { NOTES_PREFIX } from '../../../utils/fileNotes.js';
 import { authenticate, AUTH_SCOPE } from '../../../utils/auth/authCore.js';
 import { addFileToIndex } from '../../../utils/indexManager.js';
 import { registerEntry } from '../../../utils/organizationCatalog.js';
@@ -82,6 +83,7 @@ export async function onRequest(context) {
                 else entry.sharedRecovery = true;
             }
             // Minimal tombstones suppress stale indexes and contain no recovery data.
+            if (entry.kind === 'file') await db.delete(NOTES_PREFIX + id);
             await saveTrashEntry(db, { id, path: entry.path, kind: entry.kind, state: 'purged', purgedAt: Date.now() });
             await invalidateTrashCaches(context, entry.path);
             return reply({ success: true, purged: true, storageDeleted: storageDeleted && !entry.sharedRecovery });

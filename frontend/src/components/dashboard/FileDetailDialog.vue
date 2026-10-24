@@ -1,5 +1,5 @@
 <template>
-    <el-dialog :title="$t('fileDetail.title')" v-model="visible" :width="dialogWidth">
+    <el-dialog :title="$t('fileDetail.title')" v-model="visible" :width="dialogWidth" :before-close="beforeDetailClose">
         <div class="detail-actions">
             <el-button type="primary" @click="$emit('download')" round size="small" class="detail-action" v-if="!isEditing">
                 <font-awesome-icon icon="download" style="margin-right: 3px;"></font-awesome-icon> {{ $t('fileDetail.download') }}
@@ -113,7 +113,7 @@
                 <span v-else style="color: #909399;">{{ $t('fileDetail.noTags') }}</span>
             </el-descriptions-item>
         </el-descriptions>
-
+        <FileNotes v-if="visible && file?.name" v-show="!isEditing" :key="file.name" ref="fileNotes" :file-key="file.name" />
     </el-dialog>
 </template>
 
@@ -121,9 +121,11 @@
 import { ElMessage } from 'element-plus';
 import fetchWithAuth from '@/utils/fetchWithAuth';
 import { validImageDimensions, needsPermanentLinkTab } from '@/utils/fileDetailHelpers';
+import FileNotes from './FileNotes.vue';
 
 export default {
     name: 'FileDetailDialog',
+    components: { FileNotes },
     props: {
         modelValue: { type: Boolean, default: false },
         file: { type: Object, default: null },
@@ -264,6 +266,10 @@ export default {
         }
     },
     methods: {
+        async beforeDetailClose(done) {
+            if (this.$refs.fileNotes?.saving) return;
+            if (!this.$refs.fileNotes || await this.$refs.fileNotes.confirmDiscard()) done();
+        },
         async handleImageLoad(event) {
             const image = event?.target;
             const dimensions = validImageDimensions(image?.naturalWidth, image?.naturalHeight);
@@ -334,6 +340,8 @@ export default {
             }
         },
         startEdit() {
+            if (this.$refs.fileNotes?.saving) return;
+            if (this.$refs.fileNotes?.dirty) { ElMessage.warning(this.$t('fileNotes.saveFirst')); return; }
             this.editForm.FileName = this.file?.metadata?.FileName || '';
             this.editForm.FileType = this.file?.metadata?.FileType || '';
             this.isEditing = true;
