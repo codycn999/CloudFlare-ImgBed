@@ -28,7 +28,7 @@ export function managePermission(request) {
     if (route[0] === 'delete') return 'delete';
     if (route[0] === 'replace') return 'replace';
     if (route[0] === 'rename' || route[0] === 'move') return 'organize';
-    if (route[0] === 'tags') return read ? 'list' : 'organize';
+    if (route[0] === 'tags' || route[0] === 'notes') return read ? 'list' : 'organize';
     if (route[0] === 'list' && read) {
         return url.searchParams.has('action') && url.searchParams.get('action') !== '' ? 'manage' : 'list';
     }

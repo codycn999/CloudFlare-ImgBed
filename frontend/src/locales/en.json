@@ -1,4 +1,21 @@
 {
+    "fileNotes": {
+        "saveFirst": "Save or discard your notes before editing file information.",
+        "title": "Notes",
+        "updated": "Last updated",
+        "help": "Multiline plain text, up to 32,768 characters. Available to administrators and authorized agents, not public links. Save an empty field to clear the note.",
+        "placeholder": "Document summary, background, organization notes or next steps…",
+        "unsaved": "Unsaved changes",
+        "private": "Read: File browsing. Write: File organization.",
+        "reload": "Reload",
+        "save": "Save notes",
+        "loadFailed": "Could not load notes. Please retry.",
+        "saveFailed": "Save failed. Your draft is retained; check permissions or connection.",
+        "conflict": "Notes changed elsewhere. Your draft is retained. Copy it, reload the latest version, then merge and save.",
+        "saved": "Notes saved",
+        "discard": "Discard unsaved notes?",
+        "discardOk": "Discard"
+    },
     "trash": {
         "title": "Recycle bin",
         "back": "File library",
@@ -661,7 +678,7 @@
         "permManage": "System administration",
         "permReplace": "Content replacement",
         "permListHint": "View files, folders, details, links and tags.",
-        "permOrganizeHint": "Create folders, rename, move, and add/remove/replace tags.",
+        "permOrganizeHint": "Create folders, rename, move, manage tags, and edit long-text notes.",
         "permReplaceHint": "Overwrite target content while keeping its links; retain the source by default.",
         "permDeleteHint": "Move files or folders to the recycle bin and restore them, including the source after replacement. Does not allow permanent deletion.",
         "permPurge": "Permanent deletion",
