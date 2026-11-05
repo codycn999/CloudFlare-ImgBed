@@ -12,6 +12,7 @@ function fixture() {
         TG_UPLOAD_PUBLIC_URL: 'https://img.example.com' };
     const channel = { name: 'Telegram', chatId: '-100123', botToken: '456:fake' };
     const config = { telegram: { channels: [channel] } };
+    const security = { telegramBot: { allowedUsers: [] } };
     const api = { fileDomain: 'https://api.telegram.org', async call(method, body) {
         calls.push({ method, body });
         if (method === 'getFile') return { file_path: 'photos/photo.jpg', file_size: 1024 };
@@ -19,6 +20,7 @@ function fixture() {
     } };
     const services = {
         fetchUploadConfig: async () => config, createAPI: () => api,
+        fetchSecurityConfig: async () => security,
         getDatabase: () => ({
             get: async key => key.startsWith('manage@') ? settings.get(key) ?? null : records.get(key)?.value ?? null,
             getWithMetadata: async key => records.get(key) || { value: null, metadata: null },
@@ -44,7 +46,7 @@ function fixture() {
         await Promise.all(pending);
         return result;
     };
-    return { env, config, api, services, update, records, indexed, calls, run };
+    return { env, config, security, api, services, update, records, indexed, calls, run };
 }
 
 test('private photo is copied to the channel, indexed and replied with a working file route', async () => {
@@ -194,4 +196,60 @@ test('malformed JSON and unsupported HTTP methods are rejected', async () => {
     assert.equal((await f.run('{')).status, 400);
     assert.equal((await f.run(undefined, {}, 'GET')).status, 405);
     assert.equal(f.calls.length, 0);
+});
+
+test('moderation uses the public file route and never receives the bot token', async () => {
+    const f = fixture(); const checked = [];
+    f.services.moderateContent = async (_env, url) => { checked.push(url); return 'adult'; };
+    assert.equal((await f.run()).status, 200);
+    assert.deepEqual(checked, ['https://img.example.com/file/Telegram/photo.jpg']);
+    assert.ok(checked.every(url => !url.includes('456:fake') && !url.includes('/bot')));
+    assert.equal(f.records.get('Telegram/photo.jpg').metadata.Label, 'adult');
+    assert.equal(f.indexed[0].metadata.Label, 'adult');
+});
+
+test('a retry after an applied-but-failed record write reuses the reserved path', async () => {
+    const f = fixture(); const getDatabase = f.services.getDatabase; let failOnce = true;
+    f.services.getDatabase = env => {
+        const db = getDatabase(env), put = db.put;
+        return { ...db, async put(key, value, options) {
+            await put(key, value, options);
+            if (!key.startsWith('manage@') && failOnce) { failOnce = false; throw new Error('uncertain write'); }
+        } };
+    };
+    assert.equal((await f.run()).status, 503);
+    assert.equal((await f.run()).status, 200);
+    assert.deepEqual([...f.records.keys()], ['Telegram/photo.jpg']);
+    assert.equal(f.calls.filter(c => c.method === 'copyMessage').length, 1);
+    assert.equal(f.indexed.length, 1);
+});
+
+test('a reserved path taken by another file is not mistaken for this upload', async () => {
+    const f = fixture();
+    const db = f.services.getDatabase(f.env);
+    await db.put('manage@telegramImport@456_123_7', 'Telegram/photo.jpg');
+    await db.put('Telegram/photo.jpg', '', { metadata: { FileName: 'photo.jpg', TgFileId: 'someone-else', TimeStamp: 1, Channel: 'TelegramNew' } });
+    assert.equal((await f.run()).status, 200);
+    assert.equal(f.records.get('Telegram/photo.jpg').metadata.TgFileId, 'someone-else');
+    assert.equal(f.records.get('Telegram/photo (2).jpg').metadata.TgFileId, 'large');
+    assert.equal(f.calls.filter(c => c.method === 'copyMessage').length, 1);
+});
+
+test('dashboard-authorized users can upload without being in the environment list', async () => {
+    const f = fixture(); delete f.env.TG_UPLOAD_ALLOWED_USER_IDS;
+    assert.equal((await f.run()).status, 503);
+    f.security.telegramBot.allowedUsers = [{ id: '123', note: 'me' }];
+    assert.equal((await f.run()).status, 200);
+    assert.equal(f.records.size, 1);
+});
+
+test('environment and dashboard lists combine; a malformed environment entry still fails closed', async () => {
+    const f = fixture(); f.env.TG_UPLOAD_ALLOWED_USER_IDS = '999';
+    f.security.telegramBot.allowedUsers = [{ id: '123', note: '' }];
+    assert.equal((await f.run()).status, 200);
+    assert.equal(f.records.size, 1);
+    const g = fixture(); g.env.TG_UPLOAD_ALLOWED_USER_IDS = '999,@name';
+    g.security.telegramBot.allowedUsers = [{ id: '123', note: '' }];
+    assert.equal((await g.run()).status, 503);
+    assert.equal(g.calls.length, 0);
 });
